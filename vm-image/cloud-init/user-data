@@ -1,0 +1,171 @@
+#cloud-config
+
+hostname: de10playground-vm
+
+users:
+  - name: de10-user
+    passwd: $6$123456789$vc6EMZXHdKg0l1EtbVYgrIzymDsDTzj1QscEa0rxCWQLnD0RQD4Y/9tNHNjz3OrSaKo3KNLD1UW5b7kcYhjNG1
+    lock-passwd: false
+    chpasswd: { expire: False }
+    groups: sudo, admin, plugdev, dialout
+    home: /home/de10-user
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDXlFv2i8rgUWEQdDusVqcYnUK8SaAjX0dM8sIbyDX5YsnF6PwMSNclzLQDerCx0OIxJEcckiJxWCk6ddzLLTVKd6Y1Erk1jTIBBVH9lRkTuO2wDBlZ/l/7S+5jDvTeJ4jwsJu1evfl1EDAFdxjU/uaVFX/m2bIb2Cq/dPiI8V1akGoodFWGDM8cOx94RnS/9I2CcEpEuVXxM5OaOnwk5eMvKOEPSnGSp7LpuKZTQCjoBBHs3awWqD7XBz25sntfDcJeDiYoenFvwn/V/y7OoC23S0zCz9LkPl72U8Re+0EIIe8ZVnbyGrlLm7Z0/Pf295nw/KiLivf3etmyPWp724v gameboo@gamebo-stuff
+      - ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAvv5aOS1OnReXwRi68j30ncMjjpDsZFIF2QLCJwwGL0XRzPhsK47F1aUzUqst173pWagldfokY3Hr2tnPjR74mKJ7nqt0gmZKBjZhhF4vFPtBKe9PV+/+5uWbRO5fKHBD7wGHRAlArtJcfCeWax/KdwPT5PKE3/mN1/uuFzAp6+NxRWzqHULM1H6b0tlKXTyg4A7IAdMQmjQkguYSA4bKg2fjyJSU6sjuY42mruTWmUbprCrlvmrHbjCg+UT1pxTaAqRrZevsNv7oaoPWqck2VAZDRaB53DFl/54dHqiiEPKYtrrNbC1WriHaMvMcPPnrXO584xsESufZkd555CR3MQ== jonwoodruff@Jonathan-Woodruffs-MacBook-Air.local
+
+packages:
+  - u-boot-tools
+  - libglib2.0-0
+  - libtinfo6
+  - wget
+  - curl
+  - tftpd-hpa
+  - nfs-ganesha
+  - nfs-ganesha-vfs
+  - netbase
+  - picocom
+  - expect
+  - tmux
+  - usbutils
+  - python3
+  - python3-pexpect
+  - linux-image-generic
+
+write_files:
+  - path: /opt/install_quartus_programmer.sh
+    permissions: '0755'
+    content: |
+      #! /usr/bin/env sh
+
+      echo "Downloading and installing quartus programmer"
+      QUARTUS_TOOLS_INSTALLDIR="/opt/intelFPGA_pro/23.3"
+      wget https://downloads.intel.com/akdlm/software/acdsinst/23.3/104/ib_installers/QuartusProProgrammerSetup-23.3.0.104-linux.run \
+          -O /tmp/installer \
+          && chmod +x /tmp/installer \
+          && /tmp/installer \
+          --accept_eula 1 --mode unattended --installdir $QUARTUS_TOOLS_INSTALLDIR \
+          && rm -f /tmp/installer \
+         && echo "export PATH=\"${QUARTUS_TOOLS_INSTALLDIR}/qprogrammer/quartus/bin/:\${PATH}\"" >> /home/de10-user/.bashrc
+
+  #- path: /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
+  #  permissions: '0600'
+  #  content: |
+  #    network: {config: disabled}
+
+  - path: /etc/netplan/custom-vm-config.yaml
+    permissions: '0600'
+    content: |
+      network:
+        ethernets:
+          alleths:
+            match:
+              name: en*
+            dhcp4: true
+
+  - path: /etc/udev/rules.d/51-usbblaster.rules
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # USB-Blaster
+      SUBSYSTEM=="usb", ATTR{idVendor}=="09fb", ATTR{idProduct}=="6001", MODE="0666", GROUP="plugdev"
+      SUBSYSTEM=="usb", ATTR{idVendor}=="09fb", ATTR{idProduct}=="6002", MODE="0666", GROUP="plugdev"
+      SUBSYSTEM=="usb", ATTR{idVendor}=="09fb", ATTR{idProduct}=="6003", MODE="0666", GROUP="plugdev"
+      # USB-Blaster II
+      SUBSYSTEM=="usb", ATTR{idVendor}=="09fb", ATTR{idProduct}=="6010", MODE="0666", GROUP="plugdev"
+      SUBSYSTEM=="usb", ATTR{idVendor}=="09fb", ATTR{idProduct}=="6810", MODE="0666", GROUP="plugdev"
+
+  - path: /etc/udev/rules.d/52-usbuart.rules
+    permissions: '0644'
+    owner: root:root
+    content: |
+      # Microchip MCP2221 USB-I2C/UART Combo
+      SUBSYSTEM=="usb", ATTR{idVendor}=="04d8", ATTR{idProduct}=="00dd", MODE="0666", GROUP="dialout"
+
+  - path: /etc/ganesha/ganesha.conf
+    permissions: '0644'
+    owner: root:root
+    content: |
+      LOG {
+        Components {
+          ALL = NULL;
+        }
+      }
+      EXPORT {
+        Export_id = 12345;
+        Path = /freebsd-aarch64-rootfs;
+        #Pseudo = freebsd-aarch64-rootfs;
+        Protocols = 3;
+        Access_Type = RW;
+        #Squash = root_squash;
+        #Sectype = sys;
+        FSAL {
+          Name = VFS;
+        }
+        CLIENT {
+          Clients = 192.168.0.10/24;
+          Squash = None;
+        }
+      }
+
+  - path: /etc/systemd/system/mnt-de10playground_payload.mount
+    permissions: '0644'
+    owner: root:root
+    content: |
+      [Unit]
+      Description=DE10 playground payload mount
+      ConditionPathExists=/dev/vda
+
+      [Mount]
+      What=/dev/vda
+      Where=/mnt/de10playground_payload
+      Options=rw,noatime,nofail
+
+      [Install]
+      WantedBy=multi-user.target de10playground_payload.service
+
+  - path: /etc/systemd/system/de10playground-payload.service
+    permissions: '0644'
+    owner: root:root
+    content: |
+      [Unit]
+      Description=Run de10 playground one shot payload script
+      ConditionPathExists=/mnt/de10playground_payload/runme.sh
+      Requires=mnt-de10playground_payload.mount
+
+      [Service]
+      Type=oneshot
+      ExecStart=/mnt/de10playground_payload/runme.sh
+      StandardOutput=journal+console
+
+      [Install]
+      WantedBy=multi-user.target
+
+#manage_resolv_conf: true
+#
+#resolv_conf:
+#  nameservers: ['8.8.4.4', '8.8.8.8']
+
+runcmd:
+  # network configurations
+  - rm -f /etc/netplan/50-cloud-init.yaml
+  - netplan generate
+  - netplan apply
+  - ip addr show
+  - echo "AllowUsers de10-user" >> /etc/ssh/sshd_config
+  - echo "127.0.0.1 de10playground-vm" >> /etc/hosts
+  # extra packages install
+  - /opt/install_quartus_programmer.sh
+  # systemd unit enabling
+  - systemctl enable /etc/systemd/system/mnt-de10playground_payload.mount
+  - systemctl enable /etc/systemd/system/de10playground-payload.service
+  # disable cloud-init now that it ran it ran
+  - touch /etc/cloud/cloud-init.disabled
+
+mounts:
+  - ["/dev/vda", "/mnt/de10playground_payload", "fat", "loop,noatime,nofail", "0", "0"]
+
+final_message: "All done from cloud-init"
+
+power_state:
+  mode: poweroff
