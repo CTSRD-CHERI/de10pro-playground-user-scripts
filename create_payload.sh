@@ -69,9 +69,9 @@ IMG_SIZE=$(( $IMG_SIZE > $MIN_SIZE ? $IMG_SIZE : $MIN_SIZE ))
 
 TMP_MNTDIR=$(mktemp -d)
 [ -z ${PAYLOAD_IMG+x} ] && PAYLOAD_IMG=`pwd`"/de10playground_payload.img"
+truncate -s $IMG_SIZE $PAYLOAD_IMG
 case $FS_FMT in
   ext4)
-  truncate -s $IMG_SIZE $PAYLOAD_IMG
   mkfs.ext4 -L $PAYLOAD_LABEL $PAYLOAD_IMG
   fuseext2 -o rw+ $PAYLOAD_IMG $TMP_MNTDIR
   ;;
