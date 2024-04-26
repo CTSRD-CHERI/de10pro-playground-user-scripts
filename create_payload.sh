@@ -3,7 +3,6 @@
 EXTRA_SPACE=0
 FS_FMT='ext4'
 MIN_SIZE=$(numfmt --from=iec 512M)
-PAYLOAD_IMG=`pwd`"/de10playground_payload.img"
 PAYLOAD_LABEL="DE10PGNDPLD"
 #PAYLOAD_LABEL="de10playground_payload"
 
@@ -12,9 +11,10 @@ PAYLOAD_LABEL="DE10PGNDPLD"
 usage() {
   echo "Usage: $0 [OPTIONS] PAYLOAD_DIR"
   echo "Options:"
-  echo " -h     Display this help message"
-  echo " -s NUM Required extra space (default: $EXTRA_SPACE)"
-  echo " -f FMT Desired filesystem format, one of 'ext4' or 'fat' (deafult: ext4)"
+  echo " -h      Display this help message"
+  echo " -s NUM  Required extra space (default: $EXTRA_SPACE)"
+  echo " -f FMT  Desired filesystem format, one of 'ext4' or 'fat' (deafult: ext4)"
+  echo " -o NAME Desired output file name"
 }
 
 # "entry point" of the script
@@ -43,6 +43,9 @@ while getopts "hs:f:" flag; do
       ;;
     esac
     ;;
+    o)
+    PAYLOAD_IMG=$OPTARG
+    ;;
     \?)
     echo "unknown option $flag"
     usage
@@ -65,6 +68,7 @@ test EXTRA_SPACE && IMG_SIZE=$(($IMG_SIZE+$EXTRA_SPACE))
 IMG_SIZE=$(( $IMG_SIZE > $MIN_SIZE ? $IMG_SIZE : $MIN_SIZE ))
 
 TMP_MNTDIR=$(mktemp -d)
+[ -z ${PAYLOAD_IMG+x} ] && PAYLOAD_IMG=`pwd`"/de10playground_payload.img"
 case $FS_FMT in
   ext4)
   truncate -s $IMG_SIZE $PAYLOAD_IMG
