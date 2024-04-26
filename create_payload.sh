@@ -19,7 +19,7 @@ usage() {
 
 # "entry point" of the script
 # first, get command line flags
-while getopts "hs:f:" flag; do
+while getopts "hs:f:o:" flag; do
   #echo "seen flag $flag with option $OPTARG"
   case $flag in
     h)
