@@ -1,6 +1,7 @@
 #! /usr/bin/env sh
 
 EXTRA_SPACE=0
+FS_FMT='ext4'
 MIN_SIZE=$(numfmt --from=iec 512M)
 PAYLOAD_IMG=`pwd`"/de10playground_payload.img"
 PAYLOAD_LABEL="DE10PGNDPLD"
@@ -13,11 +14,12 @@ usage() {
   echo "Options:"
   echo " -h     Display this help message"
   echo " -s NUM Required extra space (default: $EXTRA_SPACE)"
+  echo " -f FMT Desired filesystem format, one of 'ext4' or 'fat' (deafult: ext4)"
 }
 
 # "entry point" of the script
 # first, get command line flags
-while getopts "hs:" flag; do
+while getopts "hs:f:" flag; do
   #echo "seen flag $flag with option $OPTARG"
   case $flag in
     h)
@@ -26,6 +28,20 @@ while getopts "hs:" flag; do
     ;;
     s) # required extra space
     EXTRA_SPACE=$(numfmt --from=iec $OPTARG)
+    ;;
+    f) # desired filesystem format
+    case $OPTARG in
+      ext4)
+      FS_FMT='ext4'
+      ;;
+      fat)
+      FS_FMT='fat'
+      ;;
+      \?)
+      echo "unknown $flag option $OPTARG"
+      exit 1
+      ;;
+    esac
     ;;
     \?)
     echo "unknown option $flag"
@@ -48,14 +64,20 @@ IMG_SIZE=$(du --bytes --summarize --total $PAYLOAD_DIR | cut -f1 | tail -n1)
 test EXTRA_SPACE && IMG_SIZE=$(($IMG_SIZE+$EXTRA_SPACE))
 IMG_SIZE=$(( $IMG_SIZE > $MIN_SIZE ? $IMG_SIZE : $MIN_SIZE ))
 
-truncate -s $IMG_SIZE $PAYLOAD_IMG
-mkfs.ext4 -L $PAYLOAD_LABEL $PAYLOAD_IMG
-#mkfs.vfat -n $PAYLOAD_LABEL $PAYLOAD_IMG
-#mkfs.exfat -L $PAYLOAD_LABEL $PAYLOAD_IMG
 TMP_MNTDIR=$(mktemp -d)
-fuseext2 -o rw+ $PAYLOAD_IMG $TMP_MNTDIR
-#fusefat -o rw+ $PAYLOAD_IMG $TMP_MNTDIR
-#exfat-fuse -o rw+ $PAYLOAD_IMG $TMP_MNTDIR
+case $FS_FMT in
+  ext4)
+  truncate -s $IMG_SIZE $PAYLOAD_IMG
+  mkfs.ext4 -L $PAYLOAD_LABEL $PAYLOAD_IMG
+  fuseext2 -o rw+ $PAYLOAD_IMG $TMP_MNTDIR
+  ;;
+  fat)
+  mkfs.vfat -n $PAYLOAD_LABEL $PAYLOAD_IMG
+  fusefat -o rw+ $PAYLOAD_IMG $TMP_MNTDIR
+  #mkfs.exfat -L $PAYLOAD_LABEL $PAYLOAD_IMG
+  #exfat-fuse -o rw+ $PAYLOAD_IMG $TMP_MNTDIR
+  ;;
+esac
 cp -r $PAYLOAD_DIR/* $TMP_MNTDIR
 fusermount -u $TMP_MNTDIR
 rm -r $TMP_MNTDIR
