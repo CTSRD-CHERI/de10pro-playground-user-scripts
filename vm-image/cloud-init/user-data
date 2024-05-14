@@ -87,6 +87,7 @@ write_files:
     owner: root:root
     content: |
       LOG {
+        Default_Log_Level = NULL
         Components {
           ALL = NULL;
         }
