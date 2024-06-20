@@ -19,14 +19,17 @@ if __name__ == '__main__':
 
   # command line arguments
   parser = argparse.ArgumentParser(description='setup de10pro playground files')
-  parser.add_argument(
-      '-t', '--template-parameters', metavar='YAML_TEMPLATE_PARAMETERS'
+
+  subparsers = parser.add_subparsers(help='sub-command help')
+  temp_gen_parser = subparsers.add_parser('generate-templates', help='')
+  temp_gen_parser.add_argument(
+      'template_parameters', metavar='YAML_TEMPLATE_PARAMETERS'
     , help="The YAML_TEMPLATE_PARAMETERS yaml file with the jinja template parameters to use")
   clargs=parser.parse_args()
 
   # prepare the template parameters
   template_params = None
-  if clargs.template_parameters:
+  if hasattr(clargs, 'template_parameters'):
     with open(clargs.template_parameters, mode='r') as f:
       template_params = yaml.safe_load(f)
   # run through each templates in the given template parameter configurations
