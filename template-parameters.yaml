@@ -1,0 +1,15 @@
+
+runme.sh:
+  interactive: true
+
+nfs.conf:
+  nfs_export_path: ./freebsd-aarch64-rootfs
+  nfs_export_pseudo: /freebsd-aarch64-rootfs
+  nfs_export_clients: 192.168.0.10/24
+
+tftp.conf:
+  tftp_dir: ./tftp
+  tftp_user: tftp
+  tftp_addr: :69
+  tftp_opts:
+    - --secure
