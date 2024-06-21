@@ -13,3 +13,6 @@ tftp.conf:
   tftp_addr: :69
   tftp_opts:
     - --secure
+
+vm-cloud-init/user-data:
+vm-cloud-init/meta-data:
