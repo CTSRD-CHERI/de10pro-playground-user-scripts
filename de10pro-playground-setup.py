@@ -5,6 +5,7 @@ import datetime
 import argparse
 import jinja2
 import yaml
+import sys
 
 def report(params={}, comment_pfx='#'):
   rpt=[]
@@ -25,6 +26,9 @@ if __name__ == '__main__':
   temp_gen_parser.add_argument(
       'template_parameters', metavar='YAML_TEMPLATE_PARAMETERS'
     , help="The YAML_TEMPLATE_PARAMETERS yaml file with the jinja template parameters to use")
+  if len(sys.argv) == 1:
+    parser.print_help(sys.stderr)
+    sys.exit(1)
   clargs=parser.parse_args()
 
   # prepare the template parameters
