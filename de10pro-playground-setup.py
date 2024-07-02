@@ -29,13 +29,11 @@ def gen_vm_image( cloud_init_user_data, cloud_init_meta_data
     subprocess.run([ 'mkisofs', '--output', cloud_init_iso.name
                    , '-volid', 'cidata', '-joliet', '-rock'
                    , cloud_init_user_data, cloud_init_meta_data ])
-    #subprocess.run([ 'qemu-system-x86_64', '-enable-kvm', '-m', '2048'
-    #               , '-machine', 'q35'
-    #               , '-drive', f'file={vm_img},if=virtio'
-    #               , '-drive', f'driver=raw,file={cloud_init_iso.name},if=virtio'
-    #               , '-nographic' ])
-    #qemu-system-x86_64 -enable-kvm -m 2048 -machine q35 -drive file=$WORKDIR/de10pro-playground-$USER-vm.qcow2,if=virtio -drive driver=raw,file=$ISO_IMG,if=virtio -nographic
-    subprocess.run(f'qemu-system-x86_64 -enable-kvm -m 2048 -machine q35 -drive file={vm_img},if=virtio -drive driver=raw,file={cloud_init_iso.name},if=virtio -nographic')
+    subprocess.run([ 'qemu-system-x86_64', '-enable-kvm', '-m', '2048'
+                   , '-machine', 'q35'
+                   , '-drive', f'file={vm_img},if=virtio'
+                   , '-drive', f'driver=raw,file={cloud_init_iso.name},if=virtio'
+                   , '-nographic' ])
   shutil.move(vm_img, f'{clargs.output_path}/{clargs.vm_image_name}')
 
 def report(params={}, comment_pfx='#'):
@@ -54,6 +52,9 @@ def main_process(tmpl_env, tmpl_params, clargs):
   # run through each templates in the given template parameter configurations
   # and generate the parameterized render
   for t, ps in tmpl_params.items():
+    if ps is None:
+      shutil.copy(f'templates/{t}', f'{clargs.output_path}/{t}')
+      continue
     lines = tmpl_env.get_template(t).render(**ps).split('\n')
     if lines[0][0:2] == '#!':
       lines.insert(1, '\n'+report(ps))
