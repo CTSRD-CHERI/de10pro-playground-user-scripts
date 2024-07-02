@@ -12,8 +12,31 @@ import yaml
 import sys
 import os
 
-def gen_vm_image():
-  raise NotImplementedError()
+def require_cmd(cmd):
+  if shutil.which(cmd) is None:
+    print(f'\n/!\\ "{cmd}" is not available /!\\\n', file=sys.stderr)
+    exit(1)
+
+def gen_vm_image( cloud_init_user_data, cloud_init_meta_data
+                , ubuntu_img_url="https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+                ,):
+  print('generate-vm-image')
+  vm_img, _ = urllib.request.urlretrieve(ubuntu_img_url)
+  require_cmd('qemu-img')
+  subprocess.run(['qemu-img', 'resize', vm_img, '16G'])
+  with tempfile.NamedTemporaryFile() as cloud_init_iso:
+    require_cmd('mkisofs')
+    subprocess.run([ 'mkisofs', '--output', cloud_init_iso.name
+                   , '-volid', 'cidata', '-joliet', '-rock'
+                   , cloud_init_user_data, cloud_init_meta_data ])
+    #subprocess.run([ 'qemu-system-x86_64', '-enable-kvm', '-m', '2048'
+    #               , '-machine', 'q35'
+    #               , '-drive', f'file={vm_img},if=virtio'
+    #               , '-drive', f'driver=raw,file={cloud_init_iso.name},if=virtio'
+    #               , '-nographic' ])
+    #qemu-system-x86_64 -enable-kvm -m 2048 -machine q35 -drive file=$WORKDIR/de10pro-playground-$USER-vm.qcow2,if=virtio -drive driver=raw,file=$ISO_IMG,if=virtio -nographic
+    subprocess.run(f'qemu-system-x86_64 -enable-kvm -m 2048 -machine q35 -drive file={vm_img},if=virtio -drive driver=raw,file={cloud_init_iso.name},if=virtio -nographic')
+  shutil.move(vm_img, f'{clargs.output_path}/{clargs.vm_image_name}')
 
 def report(params={}, comment_pfx='#'):
   rpt=[]
@@ -23,11 +46,6 @@ def report(params={}, comment_pfx='#'):
   rpt.append(f'{comment_pfx} template file rendered with parameters:')
   for k, v in params.items(): rpt.append(f'{comment_pfx} {k} = {v}')
   return '\n'.join(rpt)
-
-def require_cmd(cmd):
-  if shutil.which(cmd) is None:
-    print(f'\n/!\\ "{cmd}" is not available /!\\\n', file=sys.stderr)
-    exit(1)
 
 def main_process(tmpl_env, tmpl_params, clargs):
 
@@ -45,25 +63,8 @@ def main_process(tmpl_env, tmpl_params, clargs):
     with open(f'{clargs.output_path}/{t}', mode='w') as f: f.write(r)
 
   if clargs.subcmd == 'generate-vm-image':
-    print('generate-vm-image')
-    cloud_init_user_data=f'{clargs.output_path}/vm-cloud-init/user-data'
-    cloud_init_meta_data=f'{clargs.output_path}/vm-cloud-init/meta-data'
-    ubuntu_img_url="https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
-    vm_img, _ = urllib.request.urlretrieve(ubuntu_img_url)
-    require_cmd('qemu-img')
-    subprocess.run(['qemu-img', 'resize', vm_img, '16G'])
-    cloud_init_iso = tempfile.NamedTemporaryFile()
-    require_cmd('mkisofs')
-    subprocess.run([ 'mkisofs', '--output', cloud_init_iso.name
-                   , '-volid', 'cidata', '-joliet', '-rock'
-                   , cloud_init_user_data, cloud_init_meta_data ])
-    subprocess.run([ 'qemu-system-x86_64', '-enable-kvm', '-m', '2048'
-                   , '-machine', 'q35'
-                   , '-drive', f'file={vm_img},if=virtio'
-                   , '-drive', f'driver=raw,file={cloud_init_iso.name},if=virtio'
-                   , '-nographic' ])
-    shutil.move(vm_img, f'{clargs.output_path}/{clargs.vm_image_name}')
-    os.remove(cloud_init_iso.name)
+    gen_vm_image( f'{clargs.output_path}/vm-cloud-init/user-data'
+                , f'{clargs.output_path}/vm-cloud-init/meta-data' )
 
 if __name__ == '__main__':
 
