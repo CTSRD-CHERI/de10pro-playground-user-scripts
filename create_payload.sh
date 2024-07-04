@@ -68,6 +68,7 @@ test EXTRA_SPACE && IMG_SIZE=$(($IMG_SIZE+$EXTRA_SPACE))
 IMG_SIZE=$(( $IMG_SIZE > $MIN_SIZE ? $IMG_SIZE : $MIN_SIZE ))
 
 TMP_MNTDIR=$(mktemp -d)
+trap 'fusermount -u ${TMP_MNTDIR}; rm -rf ${TMP_MNTDIR}' EXIT
 [ -z ${PAYLOAD_IMG+x} ] && PAYLOAD_IMG=`pwd`"/de10playground_payload.img"
 truncate -s $IMG_SIZE $PAYLOAD_IMG
 case $FS_FMT in
