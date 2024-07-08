@@ -11,8 +11,9 @@ users:
     home: /home/de10-user
     shell: /bin/bash
     ssh_authorized_keys:
-      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDXlFv2i8rgUWEQdDusVqcYnUK8SaAjX0dM8sIbyDX5YsnF6PwMSNclzLQDerCx0OIxJEcckiJxWCk6ddzLLTVKd6Y1Erk1jTIBBVH9lRkTuO2wDBlZ/l/7S+5jDvTeJ4jwsJu1evfl1EDAFdxjU/uaVFX/m2bIb2Cq/dPiI8V1akGoodFWGDM8cOx94RnS/9I2CcEpEuVXxM5OaOnwk5eMvKOEPSnGSp7LpuKZTQCjoBBHs3awWqD7XBz25sntfDcJeDiYoenFvwn/V/y7OoC23S0zCz9LkPl72U8Re+0EIIe8ZVnbyGrlLm7Z0/Pf295nw/KiLivf3etmyPWp724v gameboo@gamebo-stuff
-      - ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAvv5aOS1OnReXwRi68j30ncMjjpDsZFIF2QLCJwwGL0XRzPhsK47F1aUzUqst173pWagldfokY3Hr2tnPjR74mKJ7nqt0gmZKBjZhhF4vFPtBKe9PV+/+5uWbRO5fKHBD7wGHRAlArtJcfCeWax/KdwPT5PKE3/mN1/uuFzAp6+NxRWzqHULM1H6b0tlKXTyg4A7IAdMQmjQkguYSA4bKg2fjyJSU6sjuY42mruTWmUbprCrlvmrHbjCg+UT1pxTaAqRrZevsNv7oaoPWqck2VAZDRaB53DFl/54dHqiiEPKYtrrNbC1WriHaMvMcPPnrXO584xsESufZkd555CR3MQ== jonwoodruff@Jonathan-Woodruffs-MacBook-Air.local
+      {% for keypair in ssh_keys %}
+      - {{ keypair.pub }}
+      {% endfor %}
 
 packages:
   - u-boot-tools
@@ -40,13 +41,13 @@ write_files:
 
       echo "Downloading and installing quartus programmer"
       QUARTUS_TOOLS_INSTALLDIR="/opt/intelFPGA_pro/23.3"
-      wget https://downloads.intel.com/akdlm/software/acdsinst/23.3/104/ib_installers/QuartusProProgrammerSetup-23.3.0.104-linux.run \
-          -O /tmp/installer \
-          && chmod +x /tmp/installer \
-          && /tmp/installer \
-          --accept_eula 1 --mode unattended --installdir $QUARTUS_TOOLS_INSTALLDIR \
-          && rm -f /tmp/installer \
-         && echo "export PATH=\"${QUARTUS_TOOLS_INSTALLDIR}/qprogrammer/quartus/bin/:\${PATH}\"" >> /home/de10-user/.bashrc
+      #wget https://downloads.intel.com/akdlm/software/acdsinst/23.3/104/ib_installers/QuartusProProgrammerSetup-23.3.0.104-linux.run \
+      #    -O /tmp/installer \
+      #    && chmod +x /tmp/installer \
+      #    && /tmp/installer \
+      #    --accept_eula 1 --mode unattended --installdir $QUARTUS_TOOLS_INSTALLDIR \
+      #    && rm -f /tmp/installer \
+      #   && echo "export PATH=\"${QUARTUS_TOOLS_INSTALLDIR}/qprogrammer/quartus/bin/:\${PATH}\"" >> /home/de10-user/.bashrc
 
   #- path: /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
   #  permissions: '0600'
@@ -141,6 +142,20 @@ write_files:
 
       [Install]
       WantedBy=multi-user.target
+
+  {% for keypair in ssh_keys %}
+  - path: /home/de10-user/.ssh/{{keypair.name}}
+    permissions: '0600'
+    owner: de10-user:de10-user
+    content: |
+      {{ keypair.priv }}
+
+  - path: /home/de10-user/.ssh/{{keypair.name}}.pub
+    permissions: '0644'
+    owner: de10-user:de10-user
+    content: |
+      {{ keypair.pub }}
+  {% endfor %}
 
 #manage_resolv_conf: true
 #

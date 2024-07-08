@@ -2,12 +2,12 @@
 runme.sh:
   interactive: true
 
-nfs.conf:
+conf/ganesha.conf:
   nfs_export_path: ./freebsd-aarch64-rootfs
   nfs_export_pseudo: /freebsd-aarch64-rootfs
   nfs_export_clients: 192.168.0.10/24
 
-tftp.conf:
+conf/tftpd-hpa:
   tftp_dir: ./tftp
   tftp_user: tftp
   tftp_addr: :69
@@ -16,3 +16,11 @@ tftp.conf:
 
 vm-cloud-init/user-data:
 vm-cloud-init/meta-data:
+
+tftp/u-boot-stage2.cmd:
+  scratch_addr: 1000
+  core_rbf: fpga.core.rbf
+  loader_addr: 0x2000000
+  dtb_addr: 0x8000000
+  loader: loader.efi
+  dtb: socfpga_stratix10_de10_pro.dts.dtb
