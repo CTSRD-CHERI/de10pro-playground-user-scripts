@@ -14,7 +14,7 @@ TFTP_OPTIONS="{{ ' '.join(tftp_opts) }}"
 EOF
 echo "generated /tmp/tftpd-hpa"
 mount --bind -o ro /tmp/tftpd-hpa /etc/default/tftpd-hpa
-echo "bound mounted ${PAYLOADDIR}/conf/tftpd-hpa over /etc/default/tftpd-hpa"
+echo "bound mounted /tmp/tftpd-hpa over /etc/default/tftpd-hpa"
 systemctl restart tftpd-hpa.service
 echo "restarted tftpd-hpa.service with payload-specific configuration"
 
@@ -55,8 +55,8 @@ EXPORT {
 }
 EOF
 echo "generated /tmp/ganesha.conf"
-mount --bind -o ro ${PAYLOADDIR}/conf/ganesha.conf /etc/ganesha/ganesha.conf
-echo "bound mounted ${PAYLOADDIR}/conf/ganesha.conf over /etc/ganesha/ganesha.conf"
+mount --bind -o ro /tmp/ganesha.conf /etc/ganesha/ganesha.conf
+echo "bound mounted /tmp/ganesha.conf over /etc/ganesha/ganesha.conf"
 systemctl restart nfs-ganesha.service
 echo "restarted nfs-ganesha.service with payload-specific configuration"
 
