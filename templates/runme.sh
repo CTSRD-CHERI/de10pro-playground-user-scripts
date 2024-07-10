@@ -6,9 +6,14 @@ echo "HPS boot payload"
 
 # setup tftpd configuration
 ################################################################################
-[ -f ${PAYLOADDIR}/conf/tftpd-hpa ] || \
-{ echo "${PAYLOADDIR}/conf/tftpd-hpa not found"; exit 1; }
-mount --bind -o ro ${PAYLOADDIR}/conf/tftpd-hpa /etc/default/tftpd-hpa
+cat << EOF > /tmp/tftpd-hpa
+TFTP_USERNAME="{{ tftp_user }}"
+TFTP_DIRECTORY="${PAYLOADDIR}/tftp"
+TFTP_ADDRESS="{{ tftp_addr }}"
+TFTP_OPTIONS="{{ ' '.join(tftp_opts) }}"
+EOF
+echo "generated /tmp/tftpd-hpa"
+mount --bind -o ro /tmp/tftpd-hpa /etc/default/tftpd-hpa
 echo "bound mounted ${PAYLOADDIR}/conf/tftpd-hpa over /etc/default/tftpd-hpa"
 systemctl restart tftpd-hpa.service
 echo "restarted tftpd-hpa.service with payload-specific configuration"
@@ -23,8 +28,33 @@ mv $PAYLOADDIR/virtio.fs $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-b
 
 # setup ganesha configuration
 ################################################################################
-
-[ -f ${PAYLOADDIR}/conf/ganesha.conf ] || { echo "${PAYLOADDIR}/conf/ganesha.conf not found"; exit 1; }
+cat << EOF > /tmp/ganesha.conf
+LOG {
+  Components {
+    ALL = NULL;
+  }
+}
+NFS_CORE_PARAM {
+  mount_path_pseudo = true;
+}
+EXPORT {
+  Export_id = 12345;
+  Path = ${PAYLOADDIR}/freebsd-aarch64-rootfs;
+  Pseudo = {{ nfs_export_pseudo }};
+  Protocols = 3;
+  Access_Type = RW;
+  #Squash = root_squash;
+  #Sectype = sys;
+  FSAL {
+    Name = VFS;
+  }
+  CLIENT {
+    Clients = {{ nfs_export_clients }};
+    Squash = None;
+  }
+}
+EOF
+echo "generated /tmp/ganesha.conf"
 mount --bind -o ro ${PAYLOADDIR}/conf/ganesha.conf /etc/ganesha/ganesha.conf
 echo "bound mounted ${PAYLOADDIR}/conf/ganesha.conf over /etc/ganesha/ganesha.conf"
 systemctl restart nfs-ganesha.service

@@ -1,13 +1,8 @@
-
 runme.sh:
   interactive: true
-
-conf/ganesha.conf:
   nfs_export_path: ./freebsd-aarch64-rootfs
   nfs_export_pseudo: /freebsd-aarch64-rootfs
   nfs_export_clients: 192.168.0.10/24
-
-conf/tftpd-hpa:
   tftp_dir: ./tftp
   tftp_user: tftp
   tftp_addr: :69

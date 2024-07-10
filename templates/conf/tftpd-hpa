@@ -1,4 +1,0 @@
-TFTP_USERNAME="{{ tftp_user }}"
-TFTP_DIRECTORY="{{ tftp_dir }}"
-TFTP_ADDRESS="{{ tftp_addr }}"
-TFTP_OPTIONS="{{ ' '.join(tftp_opts) }}"
