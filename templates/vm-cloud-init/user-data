@@ -41,13 +41,13 @@ write_files:
 
       echo "Downloading and installing quartus programmer"
       QUARTUS_TOOLS_INSTALLDIR="/opt/intelFPGA_pro/23.3"
-      #wget https://downloads.intel.com/akdlm/software/acdsinst/23.3/104/ib_installers/QuartusProProgrammerSetup-23.3.0.104-linux.run \
-      #    -O /tmp/installer \
-      #    && chmod +x /tmp/installer \
-      #    && /tmp/installer \
-      #    --accept_eula 1 --mode unattended --installdir $QUARTUS_TOOLS_INSTALLDIR \
-      #    && rm -f /tmp/installer \
-      #   && echo "export PATH=\"${QUARTUS_TOOLS_INSTALLDIR}/qprogrammer/quartus/bin/:\${PATH}\"" >> /home/de10-user/.bashrc
+      wget https://downloads.intel.com/akdlm/software/acdsinst/23.3/104/ib_installers/QuartusProProgrammerSetup-23.3.0.104-linux.run \
+          -O /tmp/installer \
+          && chmod +x /tmp/installer \
+          && /tmp/installer \
+          --accept_eula 1 --mode unattended --installdir $QUARTUS_TOOLS_INSTALLDIR \
+          && rm -f /tmp/installer \
+         && echo "export PATH=\"${QUARTUS_TOOLS_INSTALLDIR}/qprogrammer/quartus/bin/:\${PATH}\"" >> /home/de10-user/.bashrc
 
   #- path: /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
   #  permissions: '0600'
@@ -83,32 +83,32 @@ write_files:
       # Microchip MCP2221 USB-I2C/UART Combo
       SUBSYSTEM=="usb", ATTR{idVendor}=="04d8", ATTR{idProduct}=="00dd", MODE="0666", GROUP="dialout"
 
-  - path: /etc/ganesha/ganesha.conf
-    permissions: '0644'
-    owner: root:root
-    content: |
-      LOG {
-        Default_Log_Level = NULL
-        Components {
-          ALL = NULL;
-        }
-      }
-      EXPORT {
-        Export_id = 12345;
-        Path = /freebsd-aarch64-rootfs;
-        #Pseudo = freebsd-aarch64-rootfs;
-        Protocols = 3;
-        Access_Type = RW;
-        #Squash = root_squash;
-        #Sectype = sys;
-        FSAL {
-          Name = VFS;
-        }
-        CLIENT {
-          Clients = 192.168.0.10/24;
-          Squash = None;
-        }
-      }
+  #- path: /etc/ganesha/ganesha.conf
+  #  permissions: '0644'
+  #  owner: root:root
+  #  content: |
+  #    LOG {
+  #      Default_Log_Level = NULL
+  #      Components {
+  #        ALL = NULL;
+  #      }
+  #    }
+  #    EXPORT {
+  #      Export_id = 12345;
+  #      Path = /freebsd-aarch64-rootfs;
+  #      #Pseudo = freebsd-aarch64-rootfs;
+  #      Protocols = 3;
+  #      Access_Type = RW;
+  #      #Squash = root_squash;
+  #      #Sectype = sys;
+  #      FSAL {
+  #        Name = VFS;
+  #      }
+  #      CLIENT {
+  #        Clients = 192.168.0.10/24;
+  #        Squash = None;
+  #      }
+  #    }
 
   - path: /etc/systemd/system/mnt-de10playground_payload.mount
     permissions: '0644'

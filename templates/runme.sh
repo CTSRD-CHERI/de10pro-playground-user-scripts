@@ -65,13 +65,17 @@ echo "restarted nfs-ganesha.service with payload-specific configuration"
 QUARTUS_BINDIR=/opt/intelFPGA_pro/23.3/qprogrammer/quartus/bin
 QUARTUS_PGM=$QUARTUS_BINDIR/quartus_pgm
 ($QUARTUS_PGM -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@1 || \
- $QUARTUS_PGM -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@2) && \
+ $QUARTUS_PGM -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@2)
+if [ $? ]; then
+{% if interactive %}
 expect -c 'log_user 1' \
        -c 'set timeout -1' \
        -c 'spawn picocom -b 115200 /dev/ttyACM0' \
-{% if interactive %}
        -c 'interact'
 {% else %}
+expect -c 'log_user 1' \
+       -c 'set timeout -1' \
+       -c 'spawn picocom -b 115200 /dev/ttyACM0' \
        -c 'expect "EXPECT >> HPS >> DONE"' \
        -c 'exit 0'
 
@@ -90,3 +94,4 @@ echo "nfs-ganesha stopped and bound mounted config unmounted"
 echo "payload over, shutting down"
 shutdown -h now
 {% endif %}
+fi

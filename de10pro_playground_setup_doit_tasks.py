@@ -89,11 +89,11 @@ def task_get_bitfiles():
   d = f'{outdir}/payload/tftp'
   hps_rbf = f'{d}/fpga.hps.rbf'
   core_rbf = f'{d}/fpga.core.rbf'
-  path = "caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/de10pro-playground/aj443/"
+  path = "caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground"
   def get_bitfiles():
     os.makedirs(d, exist_ok=True)
-    subprocess.run(['rsync', f'{path}/fpga.hps.rbf', hps_rbf])
-    subprocess.run(['rsync', f'{path}/fpga.core.rbf', core_rbf])
+    subprocess.run(['rsync', '-L', f'{path}/fpga.hps.rbf', hps_rbf])
+    subprocess.run(['rsync', '-L', f'{path}/fpga.core.rbf', core_rbf])
   return {
     'actions': [get_bitfiles]
   , 'targets': [hps_rbf, core_rbf]
@@ -165,7 +165,7 @@ def task_gen_payload_runme():
     os.makedirs(f'{outdir}/payload', exist_ok=True)
     with open(out_fname, mode='w') as f:
       f.write(r)
-    os.chmod(out_fname, 0o544)
+    os.chmod(out_fname, 0o766)
   return {
     'actions': [gen_runme]
   , 'file_dep': [t.filename]
