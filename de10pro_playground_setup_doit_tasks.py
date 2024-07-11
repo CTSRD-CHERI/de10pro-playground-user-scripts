@@ -42,6 +42,18 @@ def task_get_freebsd_aarch64_rootfs():
   , 'uptodate': [True]
   }
 
+def task_copy_freebsd_aarch64_rootfs():
+  def copy_freebsd_aarch64_rootfs():
+    os.makedirs(f'{outdir}/payload', exist_ok=True)
+    shutil.copy( f'{outdir}/freebsd-aarch64-rootfs.raw.tar'
+               , f'{outdir}/payload/freebsd-aarch64-rootfs.tar' )
+  return {
+    'actions': [copy_freebsd_aarch64_rootfs]
+  , 'file_dep': [f'{outdir}/freebsd-aarch64-rootfs.raw.tar']
+  , 'targets': [f'{outdir}/payload/freebsd-aarch64-rootfs.tar']
+  , 'uptodate': [True]
+  }
+
 def task_gen_ssh_keys():
   def gen_keys():
     with tempfile.TemporaryFile("w+") as f:
@@ -55,22 +67,20 @@ def task_gen_ssh_keys():
 
 def task_install_aarch64_rootfs_ssh_keys():
   d = outdir
+  pd = f'{d}/payload'
   def install_keys():
     os.makedirs(d, exist_ok=True)
-    shutil.copy( f'{d}/freebsd-aarch64-rootfs.raw.tar'
-               , f'{d}/freebsd-aarch64-rootfs.tar' )
-    subprocess.run(['tar', '--delete', '-f', f'{d}/freebsd-aarch64-rootfs.tar'
-                                           , f'{d}/freebsd-aarch64-rootfs/root/.ssh'])
+    subprocess.run(['tar', '--delete', '-f', f'{pd}/freebsd-aarch64-rootfs.tar'
+                                           , f'freebsd-aarch64-rootfs/root/.ssh'])
     os.makedirs(f'{d}/freebsd-aarch64-rootfs/root/.ssh', exist_ok=True)
     shutil.copy(f'{d}/key.pub', f'{d}/freebsd-aarch64-rootfs/root/.ssh/authorized_keys')
     shutil.copy(f'{d}/key.pub', f'{d}/freebsd-aarch64-rootfs/root/.ssh/key.pub')
     shutil.copy(f'{d}/key', f'{d}/freebsd-aarch64-rootfs/root/.ssh/key')
-    subprocess.run(['tar', '-rvf', f'{d}/freebsd-aarch64-rootfs.tar'
+    subprocess.run(['tar', '-rvf', f'{pd}/freebsd-aarch64-rootfs.tar'
                                  , f'{d}/freebsd-aarch64-rootfs/root/.ssh'])
   return {
     'actions': [install_keys]
-  , 'file_dep': [f'{d}/key', f'{d}/key.pub', f'{d}/freebsd-aarch64-rootfs.raw.tar']
-  , 'targets': [f'{d}/freebsd-aarch64-rootfs.tar']
+  , 'file_dep': [f'{d}/key', f'{d}/key.pub', f'{pd}/freebsd-aarch64-rootfs.tar']
   }
 
 def task_get_aarch64_bsd_loader():
@@ -86,12 +96,11 @@ def task_get_aarch64_bsd_loader():
   }
 
 def task_get_bitfiles():
-  d = f'{outdir}/payload/tftp'
-  hps_rbf = f'{d}/fpga.hps.rbf'
-  core_rbf = f'{d}/fpga.core.rbf'
+  hps_rbf = f'{outdir}/payload/tftp/fpga.hps.rbf'
+  core_rbf = f'{outdir}/payload/tftp/fpga.core.rbf'
   path = "caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground"
   def get_bitfiles():
-    os.makedirs(d, exist_ok=True)
+    os.makedirs(f'{outdir}/payload/tftp', exist_ok=True)
     subprocess.run(['rsync', '-L', f'{path}/fpga.hps.rbf', hps_rbf])
     subprocess.run(['rsync', '-L', f'{path}/fpga.core.rbf', core_rbf])
   return {
@@ -129,34 +138,6 @@ def task_get_socfpga_stratix10_dtb():
   , 'uptodate': [True]
   }
 
-#def task_gen_nfs_conf():
-#  t = tmpl_env.get_template('conf/ganesha.conf')
-#  out_fname = f'{outdir}/payload/conf/ganesha.conf'
-#  def gen_nfs_conf():
-#    r = t.render(**(tmpl_params['conf/ganesha.conf']))
-#    os.makedirs(f'{outdir}/payload/conf', exist_ok=True)
-#    with open(out_fname, mode='w') as f:
-#      f.write(r)
-#  return {
-#    'actions': [gen_nfs_conf]
-#  , 'file_dep': [t.filename]
-#  , 'targets': [out_fname]
-#  }
-
-#def task_gen_tftp_conf():
-#  t = tmpl_env.get_template('conf/tftpd-hpa')
-#  out_fname = f'{outdir}/payload/conf/tftpd-hpa'
-#  def gen_tftp_conf():
-#    r = t.render(**(tmpl_params['conf/tftpd-hpa']))
-#    os.makedirs(f'{outdir}/payload/conf', exist_ok=True)
-#    with open(out_fname, mode='w') as f:
-#      f.write(r)
-#  return {
-#    'actions': [gen_tftp_conf]
-#  , 'file_dep': [t.filename]
-#  , 'targets': [out_fname]
-#  }
-
 def task_gen_payload_runme():
   t = tmpl_env.get_template('runme.sh')
   out_fname = f'{outdir}/payload/runme.sh'
@@ -176,14 +157,13 @@ def task_create_payload():
   d = f'{outdir}'
   pd = f'{d}/payload'
   fdeps = [
-    f'{pd}/runme.sh'
-  #, f'{pd}/conf/tftpd-hpa'
-  #, f'{pd}/conf/ganesha.conf'
-  , f'{pd}/tftp/loader.efi'
-  , f'{pd}/tftp/socfpga_stratix10_de10_pro.dts.dtb'
-  , f'{pd}/tftp/u-boot-stage2.scr'
-  , f'{pd}/tftp/fpga.hps.rbf'
-  , f'{pd}/tftp/fpga.core.rbf'
+    f'runme.sh'
+  , f'tftp/loader.efi'
+  , f'tftp/socfpga_stratix10_de10_pro.dts.dtb'
+  , f'tftp/u-boot-stage2.scr'
+  , f'tftp/fpga.hps.rbf'
+  , f'tftp/fpga.core.rbf'
+  , f'freebsd-aarch64-rootfs.tar'
   ]
   def create_payload():
     require_cmd('fuseext2')
@@ -191,7 +171,8 @@ def task_create_payload():
                    , '-o', f'{d}/de10playground_payload.img', pd ])
   return {
     'actions': [create_payload]
-  , 'file_dep': fdeps
+  , 'file_dep': [f'{pd}/{x}' for x in fdeps]
+  , 'task_dep': ['install_aarch64_rootfs_ssh_keys']
   , 'targets': [f'{d}/de10playground_payload.img']
   }
 
