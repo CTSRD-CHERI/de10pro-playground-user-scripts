@@ -247,7 +247,7 @@ def task_gen_cloud_init_conf():
   out_fname1 = f'{d}/meta-data'
   def gen_cloud_init_conf():
     sshkey = {'name': 'key'}
-    with open(f'{outdir}/key','r') as key: sshkey['priv'] = key.read()
+    with open(f'{outdir}/key','r') as key: sshkey['priv'] = key.read().replace('\n','\\n')
     with open(f'{outdir}/key.pub','r') as pkey: sshkey['pub'] = pkey.read()
     tmpl_params['vm-cloud-init/user-data'] = {'ssh_keys': [sshkey]}
     os.makedirs(d, exist_ok=True)

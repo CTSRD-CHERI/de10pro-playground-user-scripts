@@ -147,8 +147,7 @@ write_files:
   - path: /home/de10-user/.ssh/{{keypair["name"]}}
     permissions: '0600'
     owner: de10-user:de10-user
-    content: |
-      {{ keypair["priv"] }}
+    content: "{{ keypair["priv"] }}"
 
   - path: /home/de10-user/.ssh/{{keypair["name"]}}.pub
     permissions: '0644'
