@@ -11,9 +11,9 @@ users:
     home: /home/de10-user
     shell: /bin/bash
     ssh_authorized_keys:
-      {% for keypair in ssh_keys %}
-      - {{ keypair.pub }}
-      {% endfor %}
+      {% for keypair in ssh_keys -%}
+      - {{ keypair["pub"] }}
+      {%- endfor %}
 
 packages:
   - u-boot-tools
@@ -143,19 +143,19 @@ write_files:
       [Install]
       WantedBy=multi-user.target
 
-  {% for keypair in ssh_keys %}
-  - path: /home/de10-user/.ssh/{{keypair.name}}
+  {% for keypair in ssh_keys -%}
+  - path: /home/de10-user/.ssh/{{keypair["name"]}}
     permissions: '0600'
     owner: de10-user:de10-user
     content: |
-      {{ keypair.priv }}
+      {{ keypair["priv"] }}
 
-  - path: /home/de10-user/.ssh/{{keypair.name}}.pub
+  - path: /home/de10-user/.ssh/{{keypair["name"]}}.pub
     permissions: '0644'
     owner: de10-user:de10-user
     content: |
-      {{ keypair.pub }}
-  {% endfor %}
+      {{ keypair["pub"] }}
+  {%- endfor %}
 
 #manage_resolv_conf: true
 #

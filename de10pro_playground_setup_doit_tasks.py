@@ -58,29 +58,80 @@ def task_gen_ssh_keys():
   def gen_keys():
     with tempfile.TemporaryFile("w+") as f:
       f.write('y')
-      subprocess.run([ 'ssh-keygen', '-N', '""', '-f', f'{outdir}/key' ], stdin=f)
+      subprocess.run([ 'ssh-keygen', '-N', '', '-f', f'{outdir}/key' ], stdin=f)
   return {
     'actions': [gen_keys]
   , 'targets': [f'{outdir}/key', f'{outdir}/key.pub']
   , 'uptodate': [True]
   }
 
-def task_install_aarch64_rootfs_ssh_keys():
+def task_dtbo_aarch64_rootfs():
+  d = f'{outdir}/freebsd-aarch64-rootfs/boot'
+  def get_dtbo_aarch64_rootfs():
+    os.makedirs(d, exist_ok=True)
+    subprocess.run([ 'rsync'
+                   , 'caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga-system.dtbo'
+                   , f'{d}/fpga-system.dtbo' ])
+  return {
+    'actions': [get_dtbo_aarch64_rootfs]
+  , 'targets': [f'{d}/fpga-system.dtbo']
+  , 'uptodate': [True]
+  }
+
+def task_loader_conf_aarch64_rootfs():
+  d = f'{outdir}/freebsd-aarch64-rootfs'
+  def write_file():
+    os.makedirs(f'{d}/boot', exist_ok=True)
+    with open(f'{d}/boot/loader.conf.local', "w") as f:
+      f.writelines([ 'fdt_overlays="/boot/fpga-system.dtbo"'
+                   , 'boot.nfsroot.options="nolockd"'
+                   ])
+  return {
+    'actions': [write_file]
+  , 'targets': [f'{outdir}/boot/loader.conf.local']
+  , 'uptodate': [True]
+  }
+
+def task_fpga_riscv_boot_aarch64_rootfs():
+  d = f'{outdir}/freebsd-aarch64-rootfs'
+  def write_file():
+    os.makedirs(f'{d}/usr/local/etc/rc.d', exist_ok=True)
+    with open(f'{d}/usr/local/etc/rc.d/fpga-riscv-boot.sh', "w") as f:
+      f.writelines([ 'echo "TODO"'
+                   ])
+  return {
+    'actions': [write_file]
+  , 'targets': [f'{d}/usr/local/etc/rc.d/fpga-riscv-boot.sh']
+  , 'uptodate': [True]
+  }
+
+def task_update_aarch64_rootfs():
   d = outdir
   pd = f'{d}/payload'
-  def install_keys():
+  extra_files = [
+    'boot/fpga-system.dtbo'
+  , 'boot/loader.conf.local'
+  , 'usr/local/etc/rc.d/fpga-riscv-boot.sh'
+  ]
+  def install_files():
     os.makedirs(d, exist_ok=True)
+
     subprocess.run(['tar', '--delete', '-f', f'{pd}/freebsd-aarch64-rootfs.tar'
                                            , f'freebsd-aarch64-rootfs/root/.ssh'])
+
     os.makedirs(f'{d}/freebsd-aarch64-rootfs/root/.ssh', exist_ok=True)
+
     shutil.copy(f'{d}/key.pub', f'{d}/freebsd-aarch64-rootfs/root/.ssh/authorized_keys')
     shutil.copy(f'{d}/key.pub', f'{d}/freebsd-aarch64-rootfs/root/.ssh/key.pub')
     shutil.copy(f'{d}/key', f'{d}/freebsd-aarch64-rootfs/root/.ssh/key')
-    subprocess.run(['tar', '-rvf', f'{pd}/freebsd-aarch64-rootfs.tar'
-                                 , f'{d}/freebsd-aarch64-rootfs/root/.ssh'])
+
+    subprocess.run(['tar', '-rf', f'{pd}/freebsd-aarch64-rootfs.tar'
+                                , f'{d}/freebsd-aarch64-rootfs/'])
+
   return {
-    'actions': [install_keys]
+    'actions': [install_files]
   , 'file_dep': [f'{d}/key', f'{d}/key.pub', f'{pd}/freebsd-aarch64-rootfs.tar']
+                + [f'{d}/freebsd-aarch64-rootfs/{f}' for f in extra_files]
   }
 
 def task_get_aarch64_bsd_loader():
@@ -172,7 +223,7 @@ def task_create_payload():
   return {
     'actions': [create_payload]
   , 'file_dep': [f'{pd}/{x}' for x in fdeps]
-  , 'task_dep': ['install_aarch64_rootfs_ssh_keys']
+  , 'task_dep': ['update_aarch64_rootfs']
   , 'targets': [f'{d}/de10playground_payload.img']
   }
 
@@ -198,9 +249,9 @@ def task_gen_cloud_init_conf():
     sshkey = {'name': 'key'}
     with open(f'{outdir}/key','r') as key: sshkey['priv'] = key.read()
     with open(f'{outdir}/key.pub','r') as pkey: sshkey['pub'] = pkey.read()
-    tmpl_params['vm-cloud-init/user-data'] = {'sshkeys': [sshkey]}
+    tmpl_params['vm-cloud-init/user-data'] = {'ssh_keys': [sshkey]}
     os.makedirs(d, exist_ok=True)
-    r = t0.render(**(tmpl_params['vm-cloud-init/user-data']))
+    r = t0.render(**tmpl_params['vm-cloud-init/user-data'])
     with open(out_fname0, mode='w') as f: f.write(r)
     tmpl_params['vm-cloud-init/meta-data'] = {}
     r = t1.render(**(tmpl_params['vm-cloud-init/meta-data']))
