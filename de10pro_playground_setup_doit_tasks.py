@@ -83,9 +83,9 @@ def task_loader_conf_aarch64_rootfs():
   def write_file():
     os.makedirs(f'{d}/boot', exist_ok=True)
     with open(f'{d}/boot/loader.conf.local', "w") as f:
-      f.writelines([ 'fdt_overlays="/boot/fpga-system.dtbo"'
-                   , 'boot.nfsroot.options="nolockd"'
-                   ])
+      content = [ 'fdt_overlays="/boot/fpga-system.dtbo"'
+                , 'boot.nfsroot.options="nolockd"' ]
+      f.write('\n'.join(content))
   return {
     'actions': [write_file]
   , 'targets': [f'{outdir}/boot/loader.conf.local']
@@ -115,18 +115,22 @@ def task_update_aarch64_rootfs():
   ]
   def install_files():
     os.makedirs(d, exist_ok=True)
-
-    subprocess.run(['tar', '--delete', '-f', f'{pd}/freebsd-aarch64-rootfs.tar'
-                                           , f'freebsd-aarch64-rootfs/root/.ssh'])
-
     os.makedirs(f'{d}/freebsd-aarch64-rootfs/root/.ssh', exist_ok=True)
-
     shutil.copy(f'{d}/key.pub', f'{d}/freebsd-aarch64-rootfs/root/.ssh/authorized_keys')
     shutil.copy(f'{d}/key.pub', f'{d}/freebsd-aarch64-rootfs/root/.ssh/key.pub')
     shutil.copy(f'{d}/key', f'{d}/freebsd-aarch64-rootfs/root/.ssh/key')
 
-    subprocess.run(['tar', '-rf', f'{pd}/freebsd-aarch64-rootfs.tar'
-                                , f'{d}/freebsd-aarch64-rootfs/'])
+    flist = [f'freebsd-aarch64-rootfs/{f}' for f in extra_files] + \
+            ['freebsd-aarch64-rootfs/root/.ssh']
+
+    for f in flist:
+      subprocess.run( ['tar', '-f', 'payload/freebsd-aarch64-rootfs.tar'
+                      , '--delete', f]
+                    , cwd=d )
+
+    subprocess.run( ['tar', '-f', 'payload/freebsd-aarch64-rootfs.tar'
+                          , '--append', 'freebsd-aarch64-rootfs/']
+                  , cwd=d )
 
   return {
     'actions': [install_files]
