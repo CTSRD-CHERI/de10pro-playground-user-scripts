@@ -88,7 +88,7 @@ def task_loader_conf_aarch64_rootfs():
       f.write('\n'.join(content))
   return {
     'actions': [write_file]
-  , 'targets': [f'{outdir}/boot/loader.conf.local']
+  , 'targets': [f'{d}/boot/loader.conf.local']
   , 'uptodate': [True]
   }
 
@@ -97,8 +97,10 @@ def task_fpga_riscv_boot_aarch64_rootfs():
   def write_file():
     os.makedirs(f'{d}/usr/local/etc/rc.d', exist_ok=True)
     with open(f'{d}/usr/local/etc/rc.d/fpga-riscv-boot.sh', "w") as f:
-      f.writelines([ 'echo "TODO"'
-                   ])
+      f.write('echo ""\n')
+      f.write('echo "EXPECT >> HPS >> BOOTED"\n')
+      f.write('echo "TODO: BOOT RISCV"')
+    os.chmod(f'{d}/usr/local/etc/rc.d/fpga-riscv-boot.sh', 0o766)
   return {
     'actions': [write_file]
   , 'targets': [f'{d}/usr/local/etc/rc.d/fpga-riscv-boot.sh']
@@ -303,13 +305,10 @@ def task_gen_vm_image():
   , 'targets': [vmimage]
   }
 
-def task_run_vm():
-  def run_vm():
-    subprocess.run([ '/opt/de10playground/bin/de10playground'
-                   , f'{outdir}/de10pro-playground-user-vm.qcow2'
-                   , f'{outdir}/de10playground_payload.img' ])
+def task_setup_playground():
   return {
-    'actions': [run_vm]
+    'actions': [f'echo "de10 playground setup in {outdir}"']
+  , 'verbosity':2
   , 'file_dep': [ f'{outdir}/de10pro-playground-user-vm.qcow2'
                 , f'{outdir}/de10playground_payload.img' ]
   }
