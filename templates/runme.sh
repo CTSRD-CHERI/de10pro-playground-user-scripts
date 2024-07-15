@@ -23,10 +23,10 @@ echo "restarted tftpd-hpa.service with payload-specific configuration"
 
 tar xf $PAYLOADDIR/freebsd-aarch64-rootfs.tar -C $PAYLOADDIR
 chown root:root $PAYLOADDIR/freebsd-aarch64-rootfs/root/.ssh/*
-#chmod +x $PAYLOADDIR/riscv-freebsd-boot.sh
 #mv $PAYLOADDIR/riscv-freebsd-boot.sh $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
 #mv $PAYLOADDIR/virtio.fs $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
-#rm $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/riscv-freebsd-boot.sh
+#chmod +x $PAYLOADDIR/riscv-freebsd-boot.sh
+rm $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/riscv-freebsd-boot.sh
 #echo "ls freebsd-aarch64-rootfs/root/.ssh"
 #ls -l $PAYLOADDIR/freebsd-aarch64-rootfs/root/.ssh/
 
