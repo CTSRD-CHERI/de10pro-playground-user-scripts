@@ -22,9 +22,13 @@ echo "restarted tftpd-hpa.service with payload-specific configuration"
 ################################################################################
 
 tar xf $PAYLOADDIR/freebsd-aarch64-rootfs.tar -C $PAYLOADDIR
-chmod +x $PAYLOADDIR/riscv-freebsd-boot.sh
-mv $PAYLOADDIR/riscv-freebsd-boot.sh $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
-mv $PAYLOADDIR/virtio.fs $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
+chown root:root $PAYLOADDIR/freebsd-aarch64-rootfs/root/.ssh/*
+#chmod +x $PAYLOADDIR/riscv-freebsd-boot.sh
+#mv $PAYLOADDIR/riscv-freebsd-boot.sh $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
+#mv $PAYLOADDIR/virtio.fs $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
+#rm $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/riscv-freebsd-boot.sh
+#echo "ls freebsd-aarch64-rootfs/root/.ssh"
+#ls -l $PAYLOADDIR/freebsd-aarch64-rootfs/root/.ssh/
 
 # setup ganesha configuration
 ################################################################################
@@ -71,6 +75,7 @@ if [ $? ]; then
 expect -c 'log_user 1' \
        -c 'set timeout -1' \
        -c 'spawn picocom -b 115200 /dev/ttyACM0' \
+       -c 'expect "EXPECT >> HPS >> BOOTED"' \
        -c 'interact'
 {% else %}
 expect -c 'log_user 1' \
