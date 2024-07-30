@@ -255,7 +255,10 @@ def task_gen_cloud_init_conf():
     sshkey = {'name': 'key'}
     with open(f'{outdir}/key','r') as key: sshkey['priv'] = key.read().replace('\n','\\n')
     with open(f'{outdir}/key.pub','r') as pkey: sshkey['pub'] = pkey.read()
-    tmpl_params['vm-cloud-init/user-data'] = {'ssh_keys': [sshkey]}
+    if not tmpl_params['vm-cloud-init/user-data']:
+      tmpl_params['vm-cloud-init/user-data'] = {}
+    tmpl_params['vm-cloud-init/user-data']['ssh_keys'] = [sshkey]
+    print(f"tmpl_params['vm-cloud-init/user-data']: {tmpl_params['vm-cloud-init/user-data']}")
     os.makedirs(d, exist_ok=True)
     r = t0.render(**tmpl_params['vm-cloud-init/user-data'])
     with open(out_fname0, mode='w') as f: f.write(r)
@@ -264,6 +267,7 @@ def task_gen_cloud_init_conf():
     with open(out_fname1, mode='w') as f: f.write(r)
   return {
     'actions': [gen_cloud_init_conf]
+  , 'verbosity':2
   , 'file_dep': [t0.filename, t1.filename, f'{outdir}/key', f'{outdir}/key.pub']
   , 'targets': [out_fname0, out_fname1]
   }

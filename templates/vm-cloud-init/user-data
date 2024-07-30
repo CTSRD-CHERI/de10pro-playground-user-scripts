@@ -16,22 +16,9 @@ users:
       {%- endfor %}
 
 packages:
-  - u-boot-tools
-  - libglib2.0-0
-  - libtinfo6
-  - wget
-  - curl
-  - tftpd-hpa
-  - nfs-ganesha
-  - nfs-ganesha-vfs
-  - netbase
-  - picocom
-  - expect
-  - tmux
-  - usbutils
-  - python3
-  - python3-pexpect
-  - linux-image-generic
+  {% for pkg in packages -%}
+  - {{ pkg }}
+  {% endfor %}
 
 write_files:
   - path: /opt/install_quartus_programmer.sh
