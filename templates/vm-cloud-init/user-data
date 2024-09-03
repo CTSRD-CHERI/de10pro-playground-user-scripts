@@ -4,16 +4,16 @@ hostname: de10playground-vm
 
 users:
   - name: de10-user
+    homedir: /home/de10-user
     passwd: $6$123456789$vc6EMZXHdKg0l1EtbVYgrIzymDsDTzj1QscEa0rxCWQLnD0RQD4Y/9tNHNjz3OrSaKo3KNLD1UW5b7kcYhjNG1
     lock-passwd: false
     chpasswd: { expire: False }
     groups: sudo, admin, plugdev, dialout
-    home: /home/de10-user
     shell: /bin/bash
     ssh_authorized_keys:
-      {% for keypair in ssh_keys -%}
+    {% for keypair in ssh_keys -%}
       - {{ keypair["pub"] }}
-      {%- endfor %}
+    {%- endfor %}
 
 packages:
   {% for pkg in packages -%}
@@ -156,12 +156,14 @@ runcmd:
   - ip addr show
   - echo "AllowUsers de10-user" >> /etc/ssh/sshd_config
   - echo "127.0.0.1 de10playground-vm" >> /etc/hosts
+  # chown user home directory
+  - chown -R de10-user:de10-user /home/de10-user
   # extra packages install
   - /opt/install_quartus_programmer.sh
   # systemd unit enabling
   - systemctl enable /etc/systemd/system/mnt-de10playground_payload.mount
   - systemctl enable /etc/systemd/system/de10playground-payload.service
-  # disable cloud-init now that it ran it ran
+  # disable cloud-init now that it ran
   - touch /etc/cloud/cloud-init.disabled
 
 mounts:
