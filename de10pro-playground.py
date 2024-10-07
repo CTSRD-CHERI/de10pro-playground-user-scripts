@@ -24,9 +24,10 @@ if __name__ == "__main__":
   , help='The OUT_PATH path to the output directory' )
 
   parser_run = subparsers.add_parser('run', help='run the de10 playground')
-  parser_run.add_argument('setup_directory', metavar='SETUP_DIR'
-  , default='./setup_output'
-  , help='The OUT_PATH path to the output directory' )
+  parser_run.add_argument('run_directory', metavar='RUN_DIR'
+  , default=['./setup_output']
+  , nargs='+'
+  , help='The RUN_DIR path(s) to the folder(s) with a vm image and optionally a payload image to run. If more than one path is specified, a tmux session is created with a window per run.' )
 
   # parse command line arguments
   #clargs=parser.parse_args()
@@ -51,13 +52,26 @@ if __name__ == "__main__":
     sys.exit(DoitMain(ModuleTaskLoader(de10pro_playground_setup_doit_tasks)).run(rest))
 
   if clargs.cmd == 'run':
-    d = clargs.setup_directory
-    if not os.path.isfile(f'{d}/de10pro-playground-user-vm.qcow2'):
-      sys.stderr.write(f'no de10pro-playground-user-vm.qcow2 found in {d}\n')
-      sys.exit(1)
-
-    cmd = [ '/opt/de10playground/bin/de10playground'
-          , f'{clargs.setup_directory}/de10pro-playground-user-vm.qcow2' ]
-    if os.path.isfile(f'{d}/de10playground_payload.img'):
-      cmd.append(f'{clargs.setup_directory}/de10playground_payload.img')
-    subprocess.run(cmd)
+    def spawn_playground_cmd(d, board_id=None):
+      if not os.path.isfile(f'{d}/de10pro-playground-user-vm.qcow2'):
+        sys.stderr.write(f'no de10pro-playground-user-vm.qcow2 found in {d}\n')
+        sys.exit(1)
+      cmd = [ '/opt/de10playground/bin/de10playground' ]
+      if board_id != None:
+        cmd.append(f'-s{board_id}')
+        cmd.append(f'-e{board_id}')
+      cmd.append(f'{d}/de10pro-playground-user-vm.qcow2')
+      if os.path.isfile(f'{d}/de10playground_payload.img'):
+        cmd.append(f'{d}/de10playground_payload.img')
+      return cmd
+    nruns = len(clargs.run_directory)
+    if nruns == 1:
+      subprocess.run(spawn_playground_cmd(clargs.run_directory[0]))
+    elif nruns > 1:
+      import libtmux
+      srv = libtmux.Server()
+      sess = srv.new_session('de10pro-playground')
+      for _ in range(1, nruns): sess.new_window()
+      for i, d in enumerate(clargs.run_directory):
+        p = sess.windows[i].panes[0]
+        p.send_keys(' '.join(spawn_playground_cmd(d, board_id=i)))
