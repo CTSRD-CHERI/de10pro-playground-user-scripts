@@ -177,6 +177,7 @@ runcmd:
   # extra packages install
   - /opt/install_quartus_programmer.sh
   # systemd unit enabling
+  - systemctl enable /etc/systemd/system/mnt-board_info.mount
   - systemctl enable /etc/systemd/system/mnt-de10playground_payload.mount
   - systemctl enable /etc/systemd/system/de10playground-payload.service
   # disable cloud-init now that it ran
