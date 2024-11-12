@@ -97,6 +97,22 @@ write_files:
   #      }
   #    }
 
+  - path: /etc/systemd/system/mnt-board_info.mount
+    permissions: '0644'
+    owner: root:root
+    content: |
+      [Unit]
+      Description=DE10 board info mount
+      ConditionPathExists=/dev/sdb
+
+      [Mount]
+      What=/dev/sdb
+      Where=/mnt/board_info
+      Options=ro,noatime,nofail
+
+      [Install]
+      WantedBy=multi-user.target de10playground_payload.service
+
   - path: /etc/systemd/system/mnt-de10playground_payload.mount
     permissions: '0644'
     owner: root:root
