@@ -19,6 +19,8 @@ vm-cloud-init/user-data:
     - tftpd-hpa
     - nfs-ganesha
     - nfs-ganesha-vfs
+    - jq
+    - fxload
     #- tightvncserver
     - tigervnc-standalone-server
     - xterm
