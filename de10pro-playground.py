@@ -27,6 +27,7 @@ if __name__ == "__main__":
   parser_run.add_argument('setup_directory', metavar='SETUP_DIR'
   , default='./setup_output'
   , help='The OUT_PATH path to the output directory' )
+  parser_run.add_argument('--fpga', type=int, default=-1)
 
   # parse command line arguments
   #clargs=parser.parse_args()
@@ -58,6 +59,14 @@ if __name__ == "__main__":
 
     cmd = [ '/opt/de10playground/bin/de10playground'
           , f'{clargs.setup_directory}/de10pro-playground-user-vm.qcow2' ]
+    if clargs.fpga >= 0:
+        cmd = [
+                cmd[0],
+                "-s", str(clargs.fpga),
+                "-e", str(clargs.fpga),
+                cmd[1]
+        ]
     if os.path.isfile(f'{d}/de10playground_payload.img'):
       cmd.append(f'{clargs.setup_directory}/de10playground_payload.img')
+    print(cmd)
     subprocess.run(cmd)
