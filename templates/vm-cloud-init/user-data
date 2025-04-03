@@ -41,6 +41,11 @@ write_files:
   #  content: |
   #    network: {config: disabled}
 
+  - path: /etc/overlayroot.conf
+    permission: '0600'
+    content: |
+      overlayroot="tmpfs:swap=1,recurse=0"
+
   - path: /etc/netplan/custom-vm-config.yaml
     permissions: '0600'
     content: |
