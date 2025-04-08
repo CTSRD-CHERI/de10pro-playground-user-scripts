@@ -118,18 +118,18 @@ write_files:
       [Install]
       WantedBy=multi-user.target de10playground_payload.service
 
-  - path: /etc/systemd/system/mnt-de10playground_payload.mount
+  - path: /etc/systemd/system/home-de10\x2duser.mount
     permissions: '0644'
     owner: root:root
     content: |
       [Unit]
-      Description=DE10 playground payload mount
-      ConditionPathExists=/dev/vda
+      Description=DE10 playground user disk mount
+      ConditionPathExists=/dev/sdc1
 
       [Mount]
-      What=/dev/vda
-      Where=/mnt/de10playground_payload
-      Options=rw,noatime,nofail
+      What=/dev/sdc1
+      Where=/home/de10-user
+      Options=defaults,noatime,nofail,uid=de10-user,gid=de10-user
 
       [Install]
       WantedBy=multi-user.target de10playground_payload.service
@@ -140,12 +140,12 @@ write_files:
     content: |
       [Unit]
       Description=Run de10 playground one shot payload script
-      ConditionPathExists=/mnt/de10playground_payload/runme.sh
-      Requires=mnt-de10playground_payload.mount
+      ConditionPathExists=/home/de10-user/de10playground_payload/runme.sh
+      Requires=home-de10\x2duser.mount
 
       [Service]
       Type=oneshot
-      ExecStart=/mnt/de10playground_payload/runme.sh
+      ExecStart=/home/de10-user/de10playground_payload/runme.sh
       StandardOutput=journal+console
 
       [Install]
@@ -180,16 +180,16 @@ runcmd:
   # chown user home directory
   - chown -R de10-user:de10-user /home/de10-user
   # extra packages install
-  - /opt/install_quartus_programmer.sh
+  #- /opt/install_quartus_programmer.sh
   # systemd unit enabling
   - systemctl enable /etc/systemd/system/mnt-board_info.mount
-  - systemctl enable /etc/systemd/system/mnt-de10playground_payload.mount
+  - systemctl enable /etc/systemd/system/mnt-de10-user.mount
   - systemctl enable /etc/systemd/system/de10playground-payload.service
   # disable cloud-init now that it ran
   - touch /etc/cloud/cloud-init.disabled
 
-mounts:
-  - ["/dev/vda", "/mnt/de10playground_payload", "fat", "loop,noatime,nofail", "0", "0"]
+#mounts:
+#  - ["/dev/vda", "/mnt/de10playground_payload", "fat", "loop,noatime,nofail", "0", "0"]
 
 final_message: "All done from cloud-init"
 
