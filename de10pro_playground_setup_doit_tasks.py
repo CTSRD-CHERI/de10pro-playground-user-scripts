@@ -210,6 +210,38 @@ def task_gen_payload_runme():
   , 'targets': [out_fname]
   }
 
+def task_user_disk_embed_payload():
+  d = f'{outdir}'
+  pd = f'{d}/payload'
+  udisk = f'{outdir}/de10-user-data.qcow2'
+  fdeps = [
+    f'runme.sh'
+  , f'tftp/loader.efi'
+  , f'tftp/socfpga_stratix10_de10_pro.dts.dtb'
+  , f'tftp/u-boot-stage2.scr'
+  , f'tftp/fpga.hps.rbf'
+  , f'tftp/fpga.core.rbf'
+  , f'freebsd-aarch64-rootfs.tar'
+  ]
+  def embed_payload():
+    require_cmd('guestmount')
+    mnt = tempfile.TemporaryDirectory()
+    try:
+      subprocess.run(['guestmount', '-a', udisk, '-m', '/dev/sda1', mnt.name])
+      print('guestmounted')
+      shutil.copytree(pd, f'{mnt.name}/de10playground_payload', dirs_exist_ok=True)
+    finally:
+      subprocess.run(['umount', mnt.name])
+      del mnt
+      print('done')
+
+  return {
+    'actions': [embed_payload]
+  , 'verbosity':2
+  , 'file_dep': [udisk] + [f'{pd}/{x}' for x in fdeps]
+  , 'task_dep': ['update_aarch64_rootfs']
+  }
+
 def task_create_payload():
   d = f'{outdir}'
   pd = f'{d}/payload'
@@ -307,6 +339,20 @@ def task_gen_vm_image():
                 , f'{outdir}/vm-cloud-init/config.iso'
                 ]
   , 'targets': [vmimage]
+  }
+
+def task_gen_user_disk():
+  user_disk = f'{outdir}/de10-user-data.qcow2'
+  user_disk_sz = '100G'
+  user_disk_fs = 'exfat'
+  def gen_user_disk():
+    require_cmd('qemu-img')
+    require_cmd('virt-format')
+    subprocess.run(['qemu-img', 'create', '-f', 'qcow2', user_disk, user_disk_sz])
+    subprocess.run(['virt-format', '-a', user_disk, f'--filesystem={user_disk_fs}'])
+  return {
+    'actions': [gen_user_disk]
+  , 'targets': [user_disk]
   }
 
 def task_setup_playground():

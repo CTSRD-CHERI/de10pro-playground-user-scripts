@@ -4,6 +4,7 @@ import os
 import sys
 import argparse
 import subprocess
+from pathlib import Path
 
 if __name__ == "__main__":
   # command line arguments
@@ -14,20 +15,21 @@ if __name__ == "__main__":
 
   parser_setup = subparsers.add_parser('setup', help='setup the de10 playground files')
   parser_setup.add_argument(
-    '--template-parameters', metavar='YAML_TEMPLATE_PARAMETERS', default='template-parameters.yaml'
+    '--template-parameters', metavar='YAML_TEMPLATE_PARAMETERS', type=Path, default='template-parameters.yaml'
   , help="The YAML_TEMPLATE_PARAMETERS yaml file with the jinja template parameters to use")
   parser_setup.add_argument(
-    '--template-directory', metavar='TEMPLATE_DIRECTORY', default=f'{cwd}/templates'
+    '--template-directory', metavar='TEMPLATE_DIRECTORY',type=Path,  default=f'{cwd}/templates'
   , help="The TEMPLATE_DIRECTORY containing the jinja templates")
   parser_setup.add_argument(
-    '-d', '--output-directory', metavar='OUT_DIR', default=f'{cwd}/setup_output'
+    '-d', '--output-directory', metavar='OUT_DIR', type=Path, default=f'{cwd}/setup_output'
   , help='The OUT_PATH path to the output directory' )
 
   parser_run = subparsers.add_parser('run', help='run the de10 playground')
-  parser_run.add_argument('run_directory', metavar='RUN_DIR'
+  parser_run.add_argument('run_directory', metavar='RUN_DIR', type=Path
   , default=['./setup_output']
   , nargs='+'
-  , help='The RUN_DIR path(s) to the folder(s) with a vm image and optionally a payload image to run. If more than one path is specified, a tmux session is created with a window per run.' )
+  , help='The RUN_DIR path(s) to the folder(s) with a vm image and optionally a user disk image (with possible payload to run). If more than one path is specified, a tmux session is created with a window per run.' )
+  parser_run.add_argument('--user-disk', type=Path, help='the user disk to use if provided')
 
   # parse command line arguments
   #clargs=parser.parse_args()
@@ -52,7 +54,7 @@ if __name__ == "__main__":
     sys.exit(DoitMain(ModuleTaskLoader(de10pro_playground_setup_doit_tasks)).run(rest))
 
   if clargs.cmd == 'run':
-    def spawn_playground_cmd(d, board_id=None):
+    def spawn_playground_cmd(d, user_disk=None, board_id=None):
       if not os.path.isfile(f'{d}/de10pro-playground-user-vm.qcow2'):
         sys.stderr.write(f'no de10pro-playground-user-vm.qcow2 found in {d}\n')
         sys.exit(1)
@@ -60,13 +62,17 @@ if __name__ == "__main__":
       if board_id != None:
         cmd.append(f'-s{board_id}')
         cmd.append(f'-e{board_id}')
-      cmd.append(f'{d}/de10pro-playground-user-vm.qcow2')
       if os.path.isfile(f'{d}/de10playground_payload.img'):
+        cmd.append(f'-p')
         cmd.append(f'{d}/de10playground_payload.img')
+      if user_disk and os.path.isfile(user_disk):
+        cmd.append(f'-u')
+        cmd.append(user_disk)
+      cmd.append(f'{d}/de10pro-playground-user-vm.qcow2')
       return cmd
     nruns = len(clargs.run_directory)
     if nruns == 1:
-      subprocess.run(spawn_playground_cmd(clargs.run_directory[0]))
+      subprocess.run(spawn_playground_cmd(clargs.run_directory[0], clargs.user_disk))
     elif nruns > 1:
       import libtmux
       srv = libtmux.Server()
@@ -74,4 +80,4 @@ if __name__ == "__main__":
       for _ in range(1, nruns): sess.new_window()
       for i, d in enumerate(clargs.run_directory):
         p = sess.windows[i].panes[0]
-        p.send_keys(' '.join(spawn_playground_cmd(d, board_id=i)))
+        p.send_keys(' '.join(spawn_playground_cmd(d, clargs.user_disk, board_id=i)))
