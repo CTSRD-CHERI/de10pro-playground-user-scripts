@@ -30,6 +30,13 @@ vm-cloud-init/user-data:
     - expect
     - tmux
     - usbutils
+    - make
+    - libtool
+    - pkg-config
+    - libjim
+    - libftdi-dev
+    - libusb-dev
+    - gdb-multiarch
     - python3
     - python3-pexpect
     - linux-image-generic
