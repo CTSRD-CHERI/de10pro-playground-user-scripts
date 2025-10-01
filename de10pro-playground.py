@@ -60,9 +60,9 @@ if __name__ == "__main__":
       if board_id != None:
         cmd.append(f'-s{board_id}')
         cmd.append(f'-e{board_id}')
+      if os.path.isfile(f'{d}/de10playground-user-disk.qcow2'):
+        cmd.extend(['-u', f'{d}/de10playground-user-disk.qcow2'])
       cmd.append(f'{d}/de10pro-playground-user-vm.qcow2')
-      if os.path.isfile(f'{d}/de10playground_payload.img'):
-        cmd.append(f'{d}/de10playground_payload.img')
       return cmd
     nruns = len(clargs.run_directory)
     if nruns == 1:

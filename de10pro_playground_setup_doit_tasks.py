@@ -3,9 +3,11 @@ import sys
 import yaml
 import shutil
 import jinja2
+import textwrap
 import tempfile
 import subprocess
 import urllib.request
+from pathlib import Path
 
 def init_ctxt( template_directory = 'templates'
              , template_parameters = 'template-parameters.yaml'
@@ -14,6 +16,7 @@ def init_ctxt( template_directory = 'templates'
   global tmpl_env
   global tmpl_params
   global outdir
+  global pd
 
   tmpl_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_directory))
 
@@ -21,7 +24,8 @@ def init_ctxt( template_directory = 'templates'
   with open(template_parameters, mode='r') as f:
     tmpl_params = yaml.safe_load(f)
 
-  outdir = output_directory
+  outdir = Path(output_directory)
+  pd = outdir / 'de10playground_payload'
 
 init_ctxt()
 
@@ -32,7 +36,7 @@ def require_cmd(cmd):
 
 def task_get_freebsd_aarch64_rootfs():
   def get_freebsd_aarch64_rootfs():
-    os.makedirs(outdir, exist_ok=True)
+    outdir.mkdir(parents = True, exist_ok = True)
     subprocess.run([ 'rsync'
                    , 'caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/freebsd-aarch64-rootfs.tar'
                    , f'{outdir}/freebsd-aarch64-rootfs.raw.tar' ])
@@ -44,13 +48,13 @@ def task_get_freebsd_aarch64_rootfs():
 
 def task_copy_freebsd_aarch64_rootfs():
   def copy_freebsd_aarch64_rootfs():
-    os.makedirs(f'{outdir}/payload', exist_ok=True)
+    pd.mkdir(parents = True, exist_ok = True)
     shutil.copy( f'{outdir}/freebsd-aarch64-rootfs.raw.tar'
-               , f'{outdir}/payload/freebsd-aarch64-rootfs.tar' )
+               , f'{pd}/freebsd-aarch64-rootfs.tar' )
   return {
     'actions': [copy_freebsd_aarch64_rootfs]
   , 'file_dep': [f'{outdir}/freebsd-aarch64-rootfs.raw.tar']
-  , 'targets': [f'{outdir}/payload/freebsd-aarch64-rootfs.tar']
+  , 'targets': [f'{pd}/freebsd-aarch64-rootfs.tar']
   , 'uptodate': [True]
   }
 
@@ -66,9 +70,9 @@ def task_gen_ssh_keys():
   }
 
 def task_dtbo_aarch64_rootfs():
-  d = f'{outdir}/freebsd-aarch64-rootfs/boot'
+  d = outdir / 'freebsd-aarch64-rootfs/boot'
   def get_dtbo_aarch64_rootfs():
-    os.makedirs(d, exist_ok=True)
+    d.mkdir(parents = True, exist_ok = True)
     subprocess.run([ 'rsync'
                    , 'caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga-system.dtbo'
                    , f'{d}/fpga-system.dtbo' ])
@@ -79,9 +83,9 @@ def task_dtbo_aarch64_rootfs():
   }
 
 def task_loader_conf_aarch64_rootfs():
-  d = f'{outdir}/freebsd-aarch64-rootfs'
+  d = outdir / 'freebsd-aarch64-rootfs'
   def write_file():
-    os.makedirs(f'{d}/boot', exist_ok=True)
+    (d / 'boot').mkdir(parents = True, exist_ok = True)
     with open(f'{d}/boot/loader.conf.local', "w") as f:
       content = [ 'fdt_overlays="/boot/fpga-system.dtbo"'
                 , 'boot.nfsroot.options="nolockd"' ]
@@ -93,9 +97,9 @@ def task_loader_conf_aarch64_rootfs():
   }
 
 def task_fpga_riscv_boot_aarch64_rootfs():
-  d = f'{outdir}/freebsd-aarch64-rootfs'
+  d = outdir / 'freebsd-aarch64-rootfs'
   def write_file():
-    os.makedirs(f'{d}/usr/local/etc/rc.d', exist_ok=True)
+    (d / 'usr/local/etc/rc.d').mkdir(parents = True, exist_ok = True)
     with open(f'{d}/usr/local/etc/rc.d/fpga-riscv-boot.sh', "w") as f:
       f.write('echo ""\n')
       f.write('echo "EXPECT >> HPS >> BOOTED"\n')
@@ -109,15 +113,14 @@ def task_fpga_riscv_boot_aarch64_rootfs():
 
 def task_update_aarch64_rootfs():
   d = outdir
-  pd = f'{d}/payload'
   extra_files = [
     'boot/fpga-system.dtbo'
   , 'boot/loader.conf.local'
   , 'usr/local/etc/rc.d/fpga-riscv-boot.sh'
   ]
   def install_files():
-    os.makedirs(d, exist_ok=True)
-    os.makedirs(f'{d}/freebsd-aarch64-rootfs/root/.ssh', exist_ok=True)
+    d.mkdir(parents = True, exist_ok = True)
+    (d / 'freebsd-aarch64-rootfs/root/.ssh').mkdir(parents = True, exist_ok = True)
     shutil.copy(f'{d}/key.pub', f'{d}/freebsd-aarch64-rootfs/root/.ssh/authorized_keys')
     shutil.copy(f'{d}/key.pub', f'{d}/freebsd-aarch64-rootfs/root/.ssh/key.pub')
     shutil.copy(f'{d}/key', f'{d}/freebsd-aarch64-rootfs/root/.ssh/key')
@@ -126,11 +129,11 @@ def task_update_aarch64_rootfs():
             ['freebsd-aarch64-rootfs/root/.ssh']
 
     for f in flist:
-      subprocess.run( ['tar', '-f', 'payload/freebsd-aarch64-rootfs.tar'
+      subprocess.run( ['tar', '-f', f'{pd.stem}/freebsd-aarch64-rootfs.tar'
                       , '--delete', f]
                     , cwd=d )
 
-    subprocess.run( ['tar', '-f', 'payload/freebsd-aarch64-rootfs.tar'
+    subprocess.run( ['tar', '-f', f'{pd.stem}/freebsd-aarch64-rootfs.tar'
                           , '--append', 'freebsd-aarch64-rootfs/']
                   , cwd=d )
 
@@ -142,9 +145,9 @@ def task_update_aarch64_rootfs():
 
 def task_get_aarch64_bsd_loader():
   url = 'https://www.cl.cam.ac.uk/~jdw57/loader.efi'
-  loader = f'{outdir}/payload/tftp/loader.efi'
+  loader = f'{pd}/tftp/loader.efi'
   def get_loader():
-    os.makedirs(f'{outdir}/payload/tftp/', exist_ok=True)
+    (pd / 'tftp').mkdir(parents = True, exist_ok = True)
     urllib.request.urlretrieve(url, filename=loader)
   return {
     'actions': [get_loader]
@@ -153,11 +156,11 @@ def task_get_aarch64_bsd_loader():
   }
 
 def task_get_bitfiles():
-  hps_rbf = f'{outdir}/payload/tftp/fpga.hps.rbf'
-  core_rbf = f'{outdir}/payload/tftp/fpga.core.rbf'
+  hps_rbf = f'{pd}/tftp/fpga.hps.rbf'
+  core_rbf = f'{pd}/tftp/fpga.core.rbf'
   path = "caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground"
   def get_bitfiles():
-    os.makedirs(f'{outdir}/payload/tftp', exist_ok=True)
+    (pd / 'tftp').mkdir(parents = True, exist_ok = True)
     subprocess.run(['rsync', '-L', f'{path}/fpga.hps.rbf', hps_rbf])
     subprocess.run(['rsync', '-L', f'{path}/fpga.core.rbf', core_rbf])
   return {
@@ -168,10 +171,10 @@ def task_get_bitfiles():
 
 def task_gen_uboot_stage2():
   t = tmpl_env.get_template('tftp/u-boot-stage2.cmd')
-  out_fname = f'{outdir}/payload/tftp/u-boot-stage2.scr'
+  out_fname = f'{pd}/tftp/u-boot-stage2.scr'
   def gen_uboot_stage2():
     r = t.render(**(tmpl_params['tftp/u-boot-stage2.cmd']))
-    os.makedirs(f'{outdir}/payload/tftp', exist_ok=True)
+    (pd / 'tftp').mkdir(parents = True, exist_ok = True)
     with tempfile.NamedTemporaryFile('w') as f:
       f.write(r)
       f.flush()
@@ -183,11 +186,25 @@ def task_gen_uboot_stage2():
   , 'targets': [out_fname]
   }
 
+def task_gen_hps_openocd_cfg():
+  t = tmpl_env.get_template('hps.a53.openocd.cfg')
+  out_fname = f'{pd}/hps.a53.openocd.cfg'
+  def gen_hps_openocd_cfg():
+    tmpl_params['hps.a53.openocd.cfg'] = {}
+    r = t.render(**(tmpl_params['hps.a53.openocd.cfg']))
+    pd.mkdir(parents = True, exist_ok = True)
+    with open(out_fname, 'w') as f: f.write(r)
+  return {
+    'actions': [gen_hps_openocd_cfg]
+  , 'file_dep': [t.filename]
+  , 'targets': [out_fname]
+  }
+
 def task_get_socfpga_stratix10_dtb():
   url = 'https://www.cl.cam.ac.uk/~aj443/socfpga_stratix10_de10_pro.dts.dtb'
-  dtb = f'{outdir}/payload/tftp/socfpga_stratix10_de10_pro.dts.dtb'
+  dtb = f'{pd}/tftp/socfpga_stratix10_de10_pro.dts.dtb'
   def get_dtb():
-    os.makedirs(f'{outdir}/payload/tftp', exist_ok=True)
+    (pd / 'tftp').mkdir(parents = True, exist_ok = True)
     urllib.request.urlretrieve(url, filename=dtb)
   return {
     'actions': [get_dtb]
@@ -197,10 +214,10 @@ def task_get_socfpga_stratix10_dtb():
 
 def task_gen_payload_runme():
   t = tmpl_env.get_template('runme.sh')
-  out_fname = f'{outdir}/payload/runme.sh'
+  out_fname = f'{pd}/runme.sh'
   def gen_runme():
     r = t.render(**(tmpl_params['runme.sh']))
-    os.makedirs(f'{outdir}/payload', exist_ok=True)
+    pd.mkdir(parents = True, exist_ok = True)
     with open(out_fname, mode='w') as f:
       f.write(r)
     os.chmod(out_fname, 0o766)
@@ -210,11 +227,35 @@ def task_gen_payload_runme():
   , 'targets': [out_fname]
   }
 
-def task_create_payload():
-  d = f'{outdir}'
-  pd = f'{d}/payload'
+#def task_create_payload():
+#  d = f'{outdir}'
+#  pd = f'{d}/payload'
+#  fdeps = [
+#    f'runme.sh'
+#  , f'hps.a53.openocd.cfg'
+#  , f'tftp/loader.efi'
+#  , f'tftp/socfpga_stratix10_de10_pro.dts.dtb'
+#  , f'tftp/u-boot-stage2.scr'
+#  , f'tftp/fpga.hps.rbf'
+#  , f'tftp/fpga.core.rbf'
+#  , f'freebsd-aarch64-rootfs.tar'
+#  ]
+#  def create_payload():
+#    require_cmd('fuseext2')
+#    subprocess.run([ './create_payload.sh', '-s', '14G'
+#                   , '-o', f'{d}/de10playground_payload.img', pd ])
+#  return {
+#    'actions': [create_payload]
+#  , 'file_dep': [f'{pd}/{x}' for x in fdeps]
+#  , 'task_dep': ['update_aarch64_rootfs']
+#  , 'targets': [f'{d}/de10playground_payload.img']
+#  }
+
+def task_create_user_disk():
+  d = Path(outdir)
   fdeps = [
     f'runme.sh'
+  , f'hps.a53.openocd.cfg'
   , f'tftp/loader.efi'
   , f'tftp/socfpga_stratix10_de10_pro.dts.dtb'
   , f'tftp/u-boot-stage2.scr'
@@ -222,20 +263,52 @@ def task_create_payload():
   , f'tftp/fpga.core.rbf'
   , f'freebsd-aarch64-rootfs.tar'
   ]
-  def create_payload():
-    require_cmd('fuseext2')
-    subprocess.run([ './create_payload.sh', '-s', '14G'
-                   , '-o', f'{d}/de10playground_payload.img', pd ])
+  tmpmounts = d / 'tmpmounts'
+  usr_dsk = d / 'de10playground-user-disk.qcow2'
+  usr_dsk_sz = '32G'
+  def create_user_disk():
+    script = textwrap.dedent(f"""
+    qemu-img create -f qcow2 {usr_dsk} {usr_dsk_sz}
+
+    TMPDIR={tmpmounts} guestfish <<_EOF_
+    add {usr_dsk}
+    run
+    part-init /dev/sda mbr
+    part-add /dev/sda primary 2048 -2048
+    mkfs ext4 /dev/sda1
+    exit
+    _EOF_
+
+    echo "mounting stuff at {tmpmounts / 'tmp'}"
+    TMPDIR={tmpmounts} guestmount -a {usr_dsk} -m /dev/sda1 {tmpmounts / 'tmp'}
+    cp -r {pd} {tmpmounts / 'tmp' / pd.stem}
+    umount {tmpmounts / 'tmp'}
+    echo "{tmpmounts / 'tmp'} unmounted"
+    """)
+    tmpmounts.mkdir(parents = True, exist_ok = True)
+    (tmpmounts / 'tmp').mkdir(parents = True, exist_ok = True)
+    p = subprocess.Popen( [shutil.which('bash'), '--login', '-c', script]
+                          , stdout=subprocess.PIPE
+                          , stderr=subprocess.STDOUT )
+    out, err = p.communicate()
+
+    print(out)
+    print(err)
+    return (p.returncode == 0)
+
   return {
-    'actions': [create_payload]
+    'actions': [create_user_disk]
   , 'file_dep': [f'{pd}/{x}' for x in fdeps]
   , 'task_dep': ['update_aarch64_rootfs']
-  , 'targets': [f'{d}/de10playground_payload.img']
+  , 'targets': [usr_dsk]
+  #, 'verbosity': 2
   }
 
 def task_get_ubuntu_cloud_image():
   vm_img = f'{outdir}/de10pro-playground-vm.qcow2'
-  ubuntu_img_url="https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+  #ubuntu_img_url="https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+  #ubuntu_img_url="https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+  ubuntu_img_url="https://cloud-images.ubuntu.com/plucky/current/plucky-server-cloudimg-amd64.img"
   def get_img():
     tmp, _ = urllib.request.urlretrieve(ubuntu_img_url)
     shutil.move(tmp, vm_img)
@@ -314,5 +387,6 @@ def task_setup_playground():
     'actions': [f'echo "de10 playground setup in {outdir}"']
   , 'verbosity':2
   , 'file_dep': [ f'{outdir}/de10pro-playground-user-vm.qcow2'
-                , f'{outdir}/de10playground_payload.img' ]
+                #, f'{outdir}/de10playground_payload.img' ]
+                , f'{outdir}/de10playground-user-disk.qcow2' ]
   }

@@ -1,3 +1,5 @@
+define: &quartus_install_pfx '/opt/intelFPGA_pro/23.3'
+
 runme.sh:
   interactive: true
   nfs_export_path: ./freebsd-aarch64-rootfs
@@ -9,7 +11,11 @@ runme.sh:
   tftp_opts:
     - --secure
 
+hps.a53.openocd.cfg:
+  quartus_tools_install_dir: *quartus_install_pfx
+
 vm-cloud-init/user-data:
+  quartus_tools_install_dir: *quartus_install_pfx
   packages:
     - u-boot-tools
     - libglib2.0-0
@@ -36,6 +42,7 @@ vm-cloud-init/user-data:
     - libjim
     - libftdi-dev
     - libusb-dev
+    - libusb-1.0-0-dev
     - gdb-multiarch
     - python3
     - python3-pexpect
