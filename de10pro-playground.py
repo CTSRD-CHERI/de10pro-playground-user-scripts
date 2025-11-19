@@ -61,7 +61,7 @@ if __name__ == "__main__":
         cmd.append(f'-s{board_id}')
         cmd.append(f'-e{board_id}')
       if (d / 'de10playground-user-disk.qcow2').exists():
-        cmd.extend(['-u', (d / 'de10playground-user-disk.qcow2']).absolute())
+        cmd.extend(['-u', (d / 'de10playground-user-disk.qcow2').absolute()])
       cmd.append((d / 'de10pro-playground-user-vm.qcow2').absolute())
       return cmd
     nruns = len(clargs.run_directory)
