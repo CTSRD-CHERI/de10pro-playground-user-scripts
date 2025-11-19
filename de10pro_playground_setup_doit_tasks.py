@@ -273,17 +273,15 @@ def task_create_user_disk():
     TMPDIR={tmpmounts} guestfish <<_EOF_
     add {usr_dsk}
     run
-    part-init /dev/sda mbr
+    part-init /dev/sda gpt
     part-add /dev/sda primary 2048 -2048
     mkfs ext4 /dev/sda1
+    mount /dev/sda1 /
+    chown 1000 1000 /
+    copy-in {pd.absolute()} /
+    umount /
     exit
     _EOF_
-
-    echo "mounting stuff at {tmpmounts / 'tmp'}"
-    TMPDIR={tmpmounts} guestmount -a {usr_dsk} -m /dev/sda1 {tmpmounts / 'tmp'}
-    cp -r {pd} {tmpmounts / 'tmp' / pd.stem}
-    umount {tmpmounts / 'tmp'}
-    echo "{tmpmounts / 'tmp'} unmounted"
     """)
     tmpmounts.mkdir(parents = True, exist_ok = True)
     (tmpmounts / 'tmp').mkdir(parents = True, exist_ok = True)
