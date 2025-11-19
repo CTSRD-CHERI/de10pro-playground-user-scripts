@@ -305,8 +305,8 @@ def task_create_user_disk():
 def task_get_ubuntu_cloud_image():
   vm_img = f'{outdir}/de10pro-playground-vm.qcow2'
   #ubuntu_img_url="https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
-  #ubuntu_img_url="https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
-  ubuntu_img_url="https://cloud-images.ubuntu.com/plucky/current/plucky-server-cloudimg-amd64.img"
+  ubuntu_img_url="https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+  #ubuntu_img_url="https://cloud-images.ubuntu.com/plucky/current/plucky-server-cloudimg-amd64.img"
   def get_img():
     tmp, _ = urllib.request.urlretrieve(ubuntu_img_url)
     shutil.move(tmp, vm_img)
