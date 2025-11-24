@@ -1,5 +1,8 @@
 #! /usr/bin/env sh
 
+# make local /opt tools setup available
+. /opt/sourceme.sh
+
 PAYLOADDIR="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
 echo "HPS boot payload"
@@ -66,11 +69,17 @@ echo "restarted nfs-ganesha.service with payload-specific configuration"
 
 # stratix10 boot
 ################################################################################
-QUARTUS_BINDIR=/opt/intelFPGA_pro/23.3/qprogrammer/quartus/bin
-QUARTUS_PGM=$QUARTUS_BINDIR/quartus_pgm
-($QUARTUS_PGM -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@1 || \
- $QUARTUS_PGM -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@2)
-if [ $? ]; then
+
+hps_boot() {
+  DEVNODE=$(for U in /sys/bus/usb/devices/*/ ; do if [ -e $U/idVendor ] ; then if [ $(cat "$U/idVendor" || true) == "09fb" ] ; then printf "/dev/bus/usb/%03d/%03d\n" $(cat $U/busnum) $(cat $U/devnum) ; break ; fi ; fi ; done)
+  fxload -t fx2lp -D $DEVNODE -I /opt/intelFPGA_pro/23.3/qprogrammer/quartus/linux64/blaster_6810.hex && \
+    sleep 30 && quartus_pgm -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@2 && \
+    sleep 30 && openocd -f ${PAYLOADDIR}/hps.a53.openocd.cfg & \
+    sleep 10 && gdb-multiarch -x ${PAYLOADDIR}/hps.a53.boot.gdb &
+}
+
+hps_boot
+
 {% if interactive %}
 expect -c 'log_user 1' \
        -c 'set timeout -1' \
@@ -99,4 +108,3 @@ echo "nfs-ganesha stopped and bound mounted config unmounted"
 echo "payload over, shutting down"
 shutdown -h now
 {% endif %}
-fi

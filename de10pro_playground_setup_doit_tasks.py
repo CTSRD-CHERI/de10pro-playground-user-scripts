@@ -25,7 +25,7 @@ def init_ctxt( template_directory = 'templates'
     tmpl_params = yaml.safe_load(f)
 
   outdir = Path(output_directory)
-  pd = outdir / 'de10playground_payload'
+  pd = outdir / 'de10playground-payload'
 
 init_ctxt()
 
@@ -169,6 +169,23 @@ def task_get_bitfiles():
   , 'uptodate': [True]
   }
 
+def task_build_hps_uboot():
+  uboot_bin = f'{pd}/tftp/u-boot-dtb.bin'
+  def clone_and_build():
+    require_cmd('git')
+    script = f"""
+      git clone --depth=1 https://github.com/CTSRD-CHERI/de10pro-playground-uboot.git
+      cd de10pro-playground-uboot
+      sh build_uboot.sh
+      cp u-boot-socfpga/u-boot-dtb.bin {uboot_bin}
+    """
+    subprocess.run(['bash', '-c', script], check = True)
+  return {
+    'actions': [clone_and_build]
+  , 'targets': [uboot_bin]
+  , 'uptodate': [True]
+  }
+
 def task_gen_uboot_stage2():
   t = tmpl_env.get_template('tftp/u-boot-stage2.cmd')
   out_fname = f'{pd}/tftp/u-boot-stage2.scr'
@@ -196,6 +213,34 @@ def task_gen_hps_openocd_cfg():
     with open(out_fname, 'w') as f: f.write(r)
   return {
     'actions': [gen_hps_openocd_cfg]
+  , 'file_dep': [t.filename]
+  , 'targets': [out_fname]
+  }
+
+def task_gen_hps_gdb_script():
+  t = tmpl_env.get_template('hps.a53.boot.gdb')
+  out_fname = f'{pd}/hps.a53.boot.gdb'
+  def gen_hps_gdb_script():
+    tmpl_params['hps.a53.boot.gdb'] = {}
+    r = t.render(**(tmpl_params['hps.a53.boot.gdb']))
+    pd.mkdir(parents = True, exist_ok = True)
+    with open(out_fname, 'w') as f: f.write(r)
+  return {
+    'actions': [gen_hps_gdb_script]
+  , 'file_dep': [t.filename]
+  , 'targets': [out_fname]
+  }
+
+def task_gen_bash_profile():
+  t = tmpl_env.get_template('.bash_profile')
+  out_fname = f'{outdir}/.bash_profile'
+  def gen_bash_profile():
+    tmpl_params['.bash_profile'] = {}
+    r = t.render(**(tmpl_params['.bash_profile']))
+    pd.mkdir(parents = True, exist_ok = True)
+    with open(out_fname, 'w') as f: f.write(r)
+  return {
+    'actions': [gen_bash_profile]
   , 'file_dep': [t.filename]
   , 'targets': [out_fname]
   }
@@ -256,6 +301,8 @@ def task_create_user_disk():
   fdeps = [
     f'runme.sh'
   , f'hps.a53.openocd.cfg'
+  , f'hps.a53.boot.gdb'
+  , f'tftp/u-boo-dtb.bin'
   , f'tftp/loader.efi'
   , f'tftp/socfpga_stratix10_de10_pro.dts.dtb'
   , f'tftp/u-boot-stage2.scr'
@@ -263,43 +310,71 @@ def task_create_user_disk():
   , f'tftp/fpga.core.rbf'
   , f'freebsd-aarch64-rootfs.tar'
   ]
+  bash_profile = d / f'.bash_profile'
+  pubkey = d / f'key.pub'
   tmpmounts = d / 'tmpmounts'
   usr_dsk = d / 'de10playground-user-disk.qcow2'
   usr_dsk_sz = '32G'
   def create_user_disk():
-    script = textwrap.dedent(f"""
-    qemu-img create -f qcow2 {usr_dsk} {usr_dsk_sz}
-
-    TMPDIR={tmpmounts} guestfish <<_EOF_
+    script = f"qemu-img create -f qcow2 {usr_dsk} {usr_dsk_sz}"
+    p0 = subprocess.Popen( [shutil.which('bash'), '--login', '-c', script]
+                         , stdout=subprocess.PIPE
+                         , stderr=subprocess.STDOUT )
+    out0, err0 = p0.communicate()
+    p0.wait()
+    tmpauthkeys = tempfile.NamedTemporaryFile(mode = 'w')
+    tmpauthkeys.write(pubkey.read_text())
+    #script = textwrap.dedent(f"""
+    script = f"""
     add {usr_dsk}
     run
     part-init /dev/sda gpt
     part-add /dev/sda primary 2048 -2048
     mkfs ext4 /dev/sda1
     mount /dev/sda1 /
-    chown 1000 1000 /
+
     copy-in {pd.absolute()} /
+    chown 1000 1000 /{pd.name}
+
+    copy-in {bash_profile.absolute()} /
+    chown 1000 1000 /{bash_profile.name}
+
+    mkdir /.ssh
+    chown 1000 1000 /.ssh/
+    chmod 0700 /.ssh
+    copy-in {pubkey.absolute()} /.ssh/
+    mv /.ssh/{pubkey.name} /.ssh/authorized_keys
+    chown 1000 1000 /.ssh/authorized_keys
+    chmod 0600 /.ssh/authorized_keys
+
     umount /
     exit
-    _EOF_
-    """)
+    """
+    env = os.environ.copy()
+    env['TMPDIR'] = tmpmounts
     tmpmounts.mkdir(parents = True, exist_ok = True)
     (tmpmounts / 'tmp').mkdir(parents = True, exist_ok = True)
-    p = subprocess.Popen( [shutil.which('bash'), '--login', '-c', script]
-                          , stdout=subprocess.PIPE
-                          , stderr=subprocess.STDOUT )
-    out, err = p.communicate()
+    p1 = subprocess.Popen( [shutil.which('guestfish'), '--']
+                         , env = env
+                         , stdin=subprocess.PIPE
+                         , stdout=subprocess.PIPE
+                         , stderr=subprocess.STDOUT
+                         , text = True )
+    out1, err1 = p1.communicate(script)
+    tmpauthkeys.close()
 
-    print(out)
-    print(err)
-    return (p.returncode == 0)
+    print(out0)
+    print(err0)
+    print(out1)
+    print(err1)
+    return (p0.returncode == 0 and p1.returncode == 0)
 
   return {
     'actions': [create_user_disk]
-  , 'file_dep': [f'{pd}/{x}' for x in fdeps]
+  , 'file_dep': [bash_profile, pubkey] + [f'{pd}/{x}' for x in fdeps]
   , 'task_dep': ['update_aarch64_rootfs']
   , 'targets': [usr_dsk]
-  #, 'verbosity': 2
+  , 'verbosity': 2
   }
 
 def task_get_ubuntu_cloud_image():
@@ -362,7 +437,8 @@ def task_gen_cloud_init_iso():
   }
 
 def task_gen_vm_image():
-  vmimage = f'{outdir}/de10pro-playground-user-vm.qcow2'
+  vmimage = outdir / 'de10pro-playground-user-vm.qcow2'
+  usr_dsk = outdir / 'de10playground-user-disk.qcow2'
   def gen_vm_image():
     shutil.copy(f'{outdir}/de10pro-playground-vm.qcow2', vmimage)
     require_cmd('qemu-img')
@@ -371,20 +447,20 @@ def task_gen_vm_image():
                    , '-machine', 'q35'
                    , '-drive', f'file={vmimage},if=virtio'
                    , '-drive', f'driver=raw,file={outdir}/vm-cloud-init/config.iso,if=virtio'
+                   , '-drive', f'file={usr_dsk},if=virtio'
                    , '-nographic' ])
   return {
     'actions': [gen_vm_image]
   , 'file_dep': [ f'{outdir}/de10pro-playground-vm.qcow2'
                 , f'{outdir}/vm-cloud-init/config.iso'
                 ]
-  , 'targets': [vmimage]
+  , 'targets': [ vmimage ]
   }
 
 def task_setup_playground():
   return {
     'actions': [f'echo "de10 playground setup in {outdir}"']
-  , 'verbosity':2
-  , 'file_dep': [ f'{outdir}/de10pro-playground-user-vm.qcow2'
-                #, f'{outdir}/de10playground_payload.img' ]
-                , f'{outdir}/de10playground-user-disk.qcow2' ]
+  , 'verbosity': 2
+  , 'file_dep': [ outdir / fname for fname in [ 'de10pro-playground-user-vm.qcow2'
+                                              , 'de10playground-user-disk.qcow2'] ]
   }
