@@ -4,6 +4,7 @@ hostname: de10playground-vm
 
 users:
   - name: de10-user
+    uid: 1000
     homedir: /home/de10-user
     passwd: $6$123456789$vc6EMZXHdKg0l1EtbVYgrIzymDsDTzj1QscEa0rxCWQLnD0RQD4Y/9tNHNjz3OrSaKo3KNLD1UW5b7kcYhjNG1
     lock-passwd: false
@@ -21,14 +22,10 @@ packages:
   {% endfor %}
 
 write_files:
-  - path: /home/de10-user/.profile
+  - path: /opt/sourceme.sh
     permissions: '0644'
     content: |
-      if [ -n "$BASH_VERSION" ]; then
-        if [ -f "$HOME/.bashrc" ]; then
-          . "$HOME/.bashrc"
-        fi
-      fi
+      echo 'de10playground sourceme'
 
   - path: /opt/install_quartus_programmer.sh
     permissions: '0755'
@@ -46,7 +43,7 @@ write_files:
       mv ${LIB_BASE}.6 ${LIB_BASE}.6.off
       mv ${LIB_BASE} ${LIB_BASE}.off
       rm -f /tmp/installer
-      echo "export PATH=\"${QUARTUS_TOOLS_INSTALLDIR}/qprogrammer/quartus/bin/:\${PATH}\"" >> /home/de10-user/.bashrc
+      echo "export PATH=\"${QUARTUS_TOOLS_INSTALLDIR}/qprogrammer/quartus/bin/:\${PATH}\"" >> /opt/sourceme.sh
 
   - path: /opt/install_openocd.sh
     permissions: '0755'
@@ -63,7 +60,24 @@ write_files:
       && make -j4 \
       && make install
       rm -rf /tmp/openocd
-      echo "export PATH=\"${OPENOCD_INSTALLDIR}/bin/:\${PATH}\"" >> /home/de10-user/.bashrc
+      echo "export PATH=\"${OPENOCD_INSTALLDIR}/bin/:\${PATH}\"" >> /opt/sourceme.sh
+
+  - path: /opt/gen_uboot_init_bootp_scr.sh
+    permissions: '0755'
+    content: |
+      #! /usr/bin/env sh
+
+      idx=$(jq '.box_slot_idx' /mnt/board_info/board_info.json)
+      hex_idx=$(printf "%02x" "$idx")
+      ethaddr="ee:ee:ee:ee:ee:$hex_idx"
+      UBOOT_SCRIPT=$(mktemp /tmp/uboot_script.XXXX)
+      cat <<EOF > "$UBOOT_SCRIPT"
+      setenv ethaddr $ethaddr;
+      bootp;
+      source 0x2000000;
+      EOF
+      mkimage -T script -d "$UBOOT_SCRIPT" /opt/uboot-init-bootp.scr
+      rm "$UBOOT_SCRIPT"
 
   #- path: /etc/cloud/cloud.cfg.d/99-custom-networking.cfg
   #  permissions: '0600'
@@ -140,7 +154,7 @@ write_files:
       Options=ro,noatime,nofail
 
       [Install]
-      WantedBy=multi-user.target de10playground_payload.service
+      WantedBy=multi-user.target de10playground-payload.service
 
   - path: /etc/systemd/system/home-de10\x2duser.mount
     permissions: '0644'
@@ -153,10 +167,28 @@ write_files:
       [Mount]
       What=/dev/sdc1
       Where=/home/de10-user
-      Options=rw,noatime,nofail
+      Options=uid=1000,gid=1000,rw,noatime,nofail
 
       [Install]
-      WantedBy=multi-user.target de10playground_payload.service
+      WantedBy=multi-user.target de10playground-payload.service
+
+  # chown user home directory
+  - path: /etc/systemd/system/home-de10\x2duser-fix-ownership.service
+    permissions: '0644'
+    owner: root:root
+    content: |
+      [Unit]
+      Description=Fix ownership of de10-user home folder
+      After=home-de10\x2user.mount
+      Requires=home-de10\x2duser.mount
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/chown -R de10-user:de10-user /home/de10-user
+      StandardOutput=journal+console
+
+      [Install]
+      WantedBy=multi-user.target
 
   - path: /etc/systemd/system/de10playground-payload.service
     permissions: '0644'
@@ -164,13 +196,30 @@ write_files:
     content: |
       [Unit]
       Description=Run de10 playground one shot payload script
-      ConditionPathExists=/home/de10-user/de10playground_payload/runme.sh
+      ConditionPathExists=/home/de10-user/de10playground-payload/runme.sh
       Requires=home-de10\x2duser.mount
 
       [Service]
       Type=oneshot
-      ExecStart=/home/de10-user/de10playground_payload/runme.sh
+      ExecStart=/home/de10-user/de10playground-payload/runme.sh
       StandardOutput=journal+console
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/uboot-init-bootp-scr-create.service
+    permissions: '0644'
+    owner: root:root
+    content: |
+      [Unit]
+      Description=Generate dynamic U-Boot script on boot
+      Requires=mnt-board_info.mount
+      After=local-fs.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/opt/gen_uboot_init_bootp_scr.sh
+      RemainAfterExit=true
 
       [Install]
       WantedBy=multi-user.target
@@ -207,14 +256,11 @@ runcmd:
   # systemd unit enabling
   - systemctl enable /etc/systemd/system/mnt-board_info.mount
   - systemctl enable /etc/systemd/system/home-de10\x2duser.mount
+  - systemctl enable /etc/systemd/system/home-de10\x2duser-fix-ownership.service
   - systemctl enable /etc/systemd/system/de10playground-payload.service
+  - systemctl enable /etc/systemd/system/uboot-init-bootp-scr-create.service
   # disable cloud-init now that it ran
   - touch /etc/cloud/cloud-init.disabled
-  # chown user home directory
-  - chown -R de10-user:de10-user /home/de10-user
-
-#mounts:
-#  - ["/dev/vda", "/mnt/de10playground_payload", "fat", "loop,noatime,nofail", "0", "0"]
 
 final_message: "All done from cloud-init"
 
