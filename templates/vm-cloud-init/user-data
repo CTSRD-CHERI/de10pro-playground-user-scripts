@@ -167,7 +167,7 @@ write_files:
       [Mount]
       What=/dev/sdc1
       Where=/home/de10-user
-      Options=uid=1000,gid=1000,rw,noatime,nofail
+      Options=rw,noatime,nofail
 
       [Install]
       WantedBy=multi-user.target de10playground-payload.service
