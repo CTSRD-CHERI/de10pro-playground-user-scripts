@@ -302,7 +302,7 @@ def task_create_user_disk():
     f'runme.sh'
   , f'hps.a53.openocd.cfg'
   , f'hps.a53.boot.gdb'
-  , f'tftp/u-boo-dtb.bin'
+  , f'tftp/u-boot-dtb.bin'
   , f'tftp/loader.efi'
   , f'tftp/socfpga_stratix10_de10_pro.dts.dtb'
   , f'tftp/u-boot-stage2.scr'
