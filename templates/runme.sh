@@ -70,26 +70,22 @@ echo "restarted nfs-ganesha.service with payload-specific configuration"
 # stratix10 boot
 ################################################################################
 
-hps_boot() {
-  DEVNODE=$(for U in /sys/bus/usb/devices/*/ ; do if [ -e $U/idVendor ] ; then if [ $(cat "$U/idVendor" || true) == "09fb" ] ; then printf "/dev/bus/usb/%03d/%03d\n" $(cat $U/busnum) $(cat $U/devnum) ; break ; fi ; fi ; done)
-  fxload -t fx2lp -D $DEVNODE -I /opt/intelFPGA_pro/23.3/qprogrammer/quartus/linux64/blaster_6810.hex && \
-    sleep 30 && quartus_pgm -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@2 && \
-    sleep 30 && openocd -f ${PAYLOADDIR}/hps.a53.openocd.cfg & \
-    sleep 10 && gdb-multiarch -x ${PAYLOADDIR}/hps.a53.boot.gdb &
-}
-
-hps_boot
-
-{% if interactive %}
+#DEVNODE=$(for U in /sys/bus/usb/devices/*/ ; do if [ -e $U/idVendor ] ; then if [ $(cat "$U/idVendor") = "09fb" ] ; then printf "/dev/bus/usb/%03d/%03d\n" $(cat $U/bus)
+#killall jtagd || true
+#echo "fxload blaster firmware..." && \
+#fxload -t fx2lp -D $DEVNODE -I /opt/intelFPGA_pro/23.3/qprogrammer/quartus/linux64/blaster_6810.hex && \
+echo "Pre running jtagconfig (potential firmware download)..." && jtagconfig && sleep 60 && \
+echo "Programing FPGA..." && quartus_pgm -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@2 && sleep 30 && \
+echo "Spawning openocd process..." && (openocd -f ${PAYLOADDIR}/hps.a53.openocd.cfg &) && sleep 15 && \
+echo "Spawning gdb procerss..." && (gdb-multiarch -x ${PAYLOADDIR}/hps.a53.boot.gdb &) && sleep 60 && \
+echo "Spawning expect process + picocom ..." && \
 expect -c 'log_user 1' \
        -c 'set timeout -1' \
        -c 'spawn picocom -b 115200 /dev/ttyACM0' \
+{%- if interactive %}
        -c 'expect "EXPECT >> HPS >> BOOTED"' \
        -c 'interact'
-{% else %}
-expect -c 'log_user 1' \
-       -c 'set timeout -1' \
-       -c 'spawn picocom -b 115200 /dev/ttyACM0' \
+{%- else %}
        -c 'expect "EXPECT >> HPS >> DONE"' \
        -c 'exit 0'
 
@@ -107,4 +103,4 @@ umount /etc/default/tftpd-hpa
 echo "nfs-ganesha stopped and bound mounted config unmounted"
 echo "payload over, shutting down"
 shutdown -h now
-{% endif %}
+{%- endif %}
