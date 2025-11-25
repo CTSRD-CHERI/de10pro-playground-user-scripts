@@ -16,6 +16,7 @@ def init_ctxt( template_directory = 'templates'
   global tmpl_env
   global tmpl_params
   global outdir
+  global builddir
   global pd
 
   tmpl_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_directory))
@@ -25,6 +26,7 @@ def init_ctxt( template_directory = 'templates'
     tmpl_params = yaml.safe_load(f)
 
   outdir = Path(output_directory)
+  builddir = outdir / 'build'
   pd = outdir / 'de10playground-payload'
 
 init_ctxt()
@@ -170,12 +172,14 @@ def task_get_bitfiles():
   }
 
 def task_build_hps_uboot():
-  uboot_bin = f'{pd}/tftp/u-boot-dtb.bin'
+  uboot_bin = pd / 'tftp/u-boot-dtb.bin'
+  bdir = builddir / 'u-boot'
+  bdir.mkdir(parents = True, exist_ok = True)
   def clone_and_build():
     require_cmd('git')
     script = f"""
-      git clone --depth=1 https://github.com/CTSRD-CHERI/de10pro-playground-uboot.git
-      cd de10pro-playground-uboot
+      git clone --depth=1 https://github.com/CTSRD-CHERI/de10pro-playground-uboot.git {bdir}
+      cd {bdir}
       sh build_uboot.sh
       cp u-boot-socfpga/u-boot-dtb.bin {uboot_bin}
     """
