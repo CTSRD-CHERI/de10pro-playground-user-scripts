@@ -74,11 +74,12 @@ echo "restarted nfs-ganesha.service with payload-specific configuration"
 #killall jtagd || true
 #echo "fxload blaster firmware..." && \
 #fxload -t fx2lp -D $DEVNODE -I /opt/intelFPGA_pro/23.3/qprogrammer/quartus/linux64/blaster_6810.hex && \
-echo "Pre running jtagconfig (potential firmware download)..." && jtagconfig && sleep 60 && \
-echo "Programing FPGA..." && quartus_pgm -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@2 && sleep 30 && \
-echo "Spawning openocd process..." && (openocd -f ${PAYLOADDIR}/hps.a53.openocd.cfg &) && sleep 15 && \
-echo "Spawning gdb procerss..." && (gdb-multiarch -x ${PAYLOADDIR}/hps.a53.boot.gdb &) && sleep 60 && \
-echo "Spawning expect process + picocom ..." && \
+echo "Pre running jtagconfig (potential firmware download)..." && jtagconfig && \
+sleep 3 && echo "Programing FPGA..." && \
+  (for i in `seq 4`; do sleep 2 && quartus_pgm -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@2;  done) && \
+sleep 3 && echo "Spawning openocd process..." && (openocd -f ${PAYLOADDIR}/hps.a53.openocd.cfg &) && \
+sleep 3 && echo "Spawning gdb procerss..." && (gdb-multiarch -x ${PAYLOADDIR}/hps.a53.boot.gdb &) && \
+sleep 3 && echo "Spawning expect process + picocom ..." && \
 expect -c 'log_user 1' \
        -c 'set timeout -1' \
        -c 'spawn picocom -b 115200 /dev/ttyACM0' \
