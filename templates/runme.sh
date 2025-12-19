@@ -24,6 +24,8 @@ echo "restarted tftpd-hpa.service with payload-specific configuration"
 # setup freebsd aarch64 rootfs
 ################################################################################
 
+{%- if interactive %}
+
 tar xf $PAYLOADDIR/freebsd-aarch64-rootfs.tar -C $PAYLOADDIR
 chown root:root $PAYLOADDIR/freebsd-aarch64-rootfs/root/.ssh/*
 #mv $PAYLOADDIR/riscv-freebsd-boot.sh $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
@@ -32,6 +34,21 @@ chown root:root $PAYLOADDIR/freebsd-aarch64-rootfs/root/.ssh/*
 rm $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/riscv-freebsd-boot.sh
 #echo "ls freebsd-aarch64-rootfs/root/.ssh"
 #ls -l $PAYLOADDIR/freebsd-aarch64-rootfs/root/.ssh/
+
+{% else %}
+
+tar xf $PAYLOADDIR/freebsd-aarch64-rootfs.tar -C $PAYLOADDIR
+chown root:root $PAYLOADDIR/freebsd-aarch64-rootfs/root/.ssh/*
+chmod +x $PAYLOADDIR/riscv-freebsd-boot.sh
+cp $PAYLOADDIR/riscv-freebsd-boot.sh   $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
+cp $PAYLOADDIR/virtio.fs               $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
+cp $PAYLOADDIR/kernel-cheri            $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
+rm -rf $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/fmem
+cp -r $PAYLOADDIR/fmem                 $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
+cp $PAYLOADDIR/bbl-gfe-riscv64-purecap $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/bbl-dual-cheri
+cp $PAYLOADDIR/devicetree.dual.wrapped.elf $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/devicetree.dual.wrapped.elf
+
+{% endif %}
 
 # setup ganesha configuration
 ################################################################################

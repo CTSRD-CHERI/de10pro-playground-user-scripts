@@ -1,7 +1,7 @@
 define: &quartus_install_pfx '/opt/intelFPGA_pro/23.3'
 
 runme.sh:
-  interactive: true
+  interactive: false
   nfs_export_path: ./freebsd-aarch64-rootfs
   nfs_export_pseudo: /freebsd-aarch64-rootfs
   nfs_export_clients: 192.168.0.10/24

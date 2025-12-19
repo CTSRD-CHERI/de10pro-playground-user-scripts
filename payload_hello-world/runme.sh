@@ -1,10 +1,106 @@
 #! /usr/bin/env sh
 
+# make local /opt tools setup available
+. /opt/sourceme.sh
+
 PAYLOADDIR="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
 echo "HPS boot payload"
-echo "PAYLOADDIR=${PAYLOADDIR}"
-echo "Hello world"
 
+# setup tftpd configuration
+################################################################################
+cat << EOF > /tmp/tftpd-hpa
+TFTP_USERNAME="tftp"
+TFTP_DIRECTORY="${PAYLOADDIR}/tftp"
+TFTP_ADDRESS=":69"
+TFTP_OPTIONS="--secure"
+EOF
+echo "generated /tmp/tftpd-hpa"
+mount --bind -o ro /tmp/tftpd-hpa /etc/default/tftpd-hpa
+echo "bound mounted /tmp/tftpd-hpa over /etc/default/tftpd-hpa"
+systemctl restart tftpd-hpa.service
+echo "restarted tftpd-hpa.service with payload-specific configuration"
+
+# setup freebsd aarch64 rootfs
+################################################################################
+
+tar xf $PAYLOADDIR/freebsd-aarch64-rootfs.tar -C $PAYLOADDIR
+chown root:root $PAYLOADDIR/freebsd-aarch64-rootfs/root/.ssh/*
+chmod +x $PAYLOADDIR/riscv-freebsd-boot.sh
+cp $PAYLOADDIR/riscv-freebsd-boot.sh   $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
+cp $PAYLOADDIR/virtio.fs               $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
+cp $PAYLOADDIR/kernel-cheri            $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
+rm -rf $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/fmem
+cp -r $PAYLOADDIR/fmem                 $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/
+cp $PAYLOADDIR/bbl-gfe-riscv64-purecap $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/bbl-dual-cheri
+cp $PAYLOADDIR/devicetree.dual.wrapped.elf $PAYLOADDIR/freebsd-aarch64-rootfs/root/riscv-freebsd-boot/devicetree.dual.wrapped.elf
+
+
+
+# setup ganesha configuration
+################################################################################
+cat << EOF > /tmp/ganesha.conf
+LOG {
+  Components {
+    ALL = NULL;
+  }
+}
+NFS_CORE_PARAM {
+  mount_path_pseudo = true;
+}
+EXPORT {
+  Export_id = 12345;
+  Path = ${PAYLOADDIR}/freebsd-aarch64-rootfs;
+  Pseudo = /freebsd-aarch64-rootfs;
+  Protocols = 3;
+  Access_Type = RW;
+  #Squash = root_squash;
+  #Sectype = sys;
+  FSAL {
+    Name = VFS;
+  }
+  CLIENT {
+    Clients = 192.168.0.10/24;
+    Squash = None;
+  }
+}
+EOF
+echo "generated /tmp/ganesha.conf"
+mount --bind -o ro /tmp/ganesha.conf /etc/ganesha/ganesha.conf
+echo "bound mounted /tmp/ganesha.conf over /etc/ganesha/ganesha.conf"
+systemctl restart nfs-ganesha.service
+echo "restarted nfs-ganesha.service with payload-specific configuration"
+
+# stratix10 boot
+################################################################################
+
+#DEVNODE=$(for U in /sys/bus/usb/devices/*/ ; do if [ -e $U/idVendor ] ; then if [ $(cat "$U/idVendor") = "09fb" ] ; then printf "/dev/bus/usb/%03d/%03d\n" $(cat $U/bus)
+#killall jtagd || true
+#echo "fxload blaster firmware..." && \
+#fxload -t fx2lp -D $DEVNODE -I /opt/intelFPGA_pro/23.3/qprogrammer/quartus/linux64/blaster_6810.hex && \
+echo "Pre running jtagconfig (potential firmware download)..." && jtagconfig && \
+sleep 3 && echo "Programing FPGA..." && \
+  (for i in `seq 4`; do sleep 2 && quartus_pgm -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@2;  done) && \
+sleep 3 && echo "Spawning openocd process..." && (openocd -f ${PAYLOADDIR}/hps.a53.openocd.cfg &) && \
+sleep 3 && echo "Spawning gdb procerss..." && (gdb-multiarch -x ${PAYLOADDIR}/hps.a53.boot.gdb &) && \
+sleep 3 && echo "Spawning expect process + picocom ..." && \
+expect -c 'log_user 1' \
+       -c 'set timeout -1' \
+       -c 'spawn picocom -b 115200 /dev/ttyACM0' \
+       -c 'expect "EXPECT >> HPS >> DONE"' \
+       -c 'exit 0'
+
+sleep 20 # Allow HPS to shutdown
+sync
+
+# terminate runme payload script
+################################################################################
+
+systemctl stop nfs-ganesha.service
+umount /etc/ganesha/ganesha.conf
+echo "nfs-ganesha stopped and bound mounted config unmounted"
+systemctl stop tftp-hpa.service
+umount /etc/default/tftpd-hpa
+echo "nfs-ganesha stopped and bound mounted config unmounted"
 echo "payload over, shutting down"
 shutdown -h now

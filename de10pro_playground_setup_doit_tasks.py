@@ -11,13 +11,17 @@ from pathlib import Path
 
 def init_ctxt( template_directory = 'templates'
              , template_parameters = 'template-parameters.yaml'
-             , output_directory = 'setup_output' ):
-
+             , output_directory = 'setup_output'
+             , hps_rbf = Path("caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga.hps.rbf")
+             , core_rbf = Path("caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga.core.rbf")
+             , payload = None
+             ):
   global tmpl_env
   global tmpl_params
   global outdir
   global builddir
   global pd
+  global bitfiles
 
   tmpl_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_directory))
 
@@ -27,7 +31,10 @@ def init_ctxt( template_directory = 'templates'
 
   outdir = Path(output_directory)
   builddir = outdir / 'build'
-  pd = outdir / 'de10playground-payload'
+  pd = Path(payload) if payload else outdir / 'de10playground-payload'
+
+  bitfiles = (hps_rbf, core_rbf)
+  extra_payload = payload
 
 init_ctxt()
 
@@ -35,30 +42,6 @@ def require_cmd(cmd):
   if shutil.which(cmd) is None:
     print(f'\n/!\\ "{cmd}" is not available /!\\\n', file=sys.stderr)
     exit(1)
-
-def task_get_freebsd_aarch64_rootfs():
-  def get_freebsd_aarch64_rootfs():
-    outdir.mkdir(parents = True, exist_ok = True)
-    subprocess.run([ 'rsync'
-                   , 'caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/freebsd-aarch64-rootfs.tar'
-                   , f'{outdir}/freebsd-aarch64-rootfs.raw.tar' ])
-  return {
-    'actions': [get_freebsd_aarch64_rootfs]
-  , 'targets': [f'{outdir}/freebsd-aarch64-rootfs.raw.tar']
-  , 'uptodate': [True]
-  }
-
-def task_copy_freebsd_aarch64_rootfs():
-  def copy_freebsd_aarch64_rootfs():
-    pd.mkdir(parents = True, exist_ok = True)
-    shutil.copy( f'{outdir}/freebsd-aarch64-rootfs.raw.tar'
-               , f'{pd}/freebsd-aarch64-rootfs.tar' )
-  return {
-    'actions': [copy_freebsd_aarch64_rootfs]
-  , 'file_dep': [f'{outdir}/freebsd-aarch64-rootfs.raw.tar']
-  , 'targets': [f'{pd}/freebsd-aarch64-rootfs.tar']
-  , 'uptodate': [True]
-  }
 
 def task_gen_ssh_keys():
   def gen_keys():
@@ -69,80 +52,6 @@ def task_gen_ssh_keys():
     'actions': [gen_keys]
   , 'targets': [f'{outdir}/key', f'{outdir}/key.pub']
   , 'uptodate': [True]
-  }
-
-def task_dtbo_aarch64_rootfs():
-  d = outdir / 'freebsd-aarch64-rootfs/boot'
-  def get_dtbo_aarch64_rootfs():
-    d.mkdir(parents = True, exist_ok = True)
-    subprocess.run([ 'rsync'
-                   , 'caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga-system.dtbo'
-                   , f'{d}/fpga-system.dtbo' ])
-  return {
-    'actions': [get_dtbo_aarch64_rootfs]
-  , 'targets': [f'{d}/fpga-system.dtbo']
-  , 'uptodate': [True]
-  }
-
-def task_loader_conf_aarch64_rootfs():
-  d = outdir / 'freebsd-aarch64-rootfs'
-  def write_file():
-    (d / 'boot').mkdir(parents = True, exist_ok = True)
-    with open(f'{d}/boot/loader.conf.local', "w") as f:
-      content = [ 'fdt_overlays="/boot/fpga-system.dtbo"'
-                , 'boot.nfsroot.options="nolockd"' ]
-      f.write('\n'.join(content))
-  return {
-    'actions': [write_file]
-  , 'targets': [f'{d}/boot/loader.conf.local']
-  , 'uptodate': [True]
-  }
-
-def task_fpga_riscv_boot_aarch64_rootfs():
-  d = outdir / 'freebsd-aarch64-rootfs'
-  def write_file():
-    (d / 'usr/local/etc/rc.d').mkdir(parents = True, exist_ok = True)
-    with open(f'{d}/usr/local/etc/rc.d/fpga-riscv-boot.sh', "w") as f:
-      f.write('echo ""\n')
-      f.write('echo "EXPECT >> HPS >> BOOTED"\n')
-      f.write('echo "TODO: BOOT RISCV"')
-    os.chmod(f'{d}/usr/local/etc/rc.d/fpga-riscv-boot.sh', 0o766)
-  return {
-    'actions': [write_file]
-  , 'targets': [f'{d}/usr/local/etc/rc.d/fpga-riscv-boot.sh']
-  , 'uptodate': [True]
-  }
-
-def task_update_aarch64_rootfs():
-  d = outdir
-  extra_files = [
-    'boot/fpga-system.dtbo'
-  , 'boot/loader.conf.local'
-  , 'usr/local/etc/rc.d/fpga-riscv-boot.sh'
-  ]
-  def install_files():
-    d.mkdir(parents = True, exist_ok = True)
-    (d / 'freebsd-aarch64-rootfs/root/.ssh').mkdir(parents = True, exist_ok = True)
-    shutil.copy(f'{d}/key.pub', f'{d}/freebsd-aarch64-rootfs/root/.ssh/authorized_keys')
-    shutil.copy(f'{d}/key.pub', f'{d}/freebsd-aarch64-rootfs/root/.ssh/key.pub')
-    shutil.copy(f'{d}/key', f'{d}/freebsd-aarch64-rootfs/root/.ssh/key')
-
-    flist = [f'freebsd-aarch64-rootfs/{f}' for f in extra_files] + \
-            ['freebsd-aarch64-rootfs/root/.ssh']
-
-    for f in flist:
-      subprocess.run( ['tar', '-f', f'{pd.stem}/freebsd-aarch64-rootfs.tar'
-                      , '--delete', f]
-                    , cwd=d )
-
-    subprocess.run( ['tar', '-f', f'{pd.stem}/freebsd-aarch64-rootfs.tar'
-                          , '--append', 'freebsd-aarch64-rootfs/']
-                  , cwd=d )
-
-  return {
-    'actions': [install_files]
-  , 'file_dep': [f'{d}/key', f'{d}/key.pub', f'{pd}/freebsd-aarch64-rootfs.tar']
-                + [f'{d}/freebsd-aarch64-rootfs/{f}' for f in extra_files]
   }
 
 def task_get_aarch64_bsd_loader():
@@ -160,11 +69,10 @@ def task_get_aarch64_bsd_loader():
 def task_get_bitfiles():
   hps_rbf = f'{pd}/tftp/fpga.hps.rbf'
   core_rbf = f'{pd}/tftp/fpga.core.rbf'
-  path = "caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground"
   def get_bitfiles():
     (pd / 'tftp').mkdir(parents = True, exist_ok = True)
-    subprocess.run(['rsync', '-L', f'{path}/fpga.hps.rbf', hps_rbf])
-    subprocess.run(['rsync', '-L', f'{path}/fpga.core.rbf', core_rbf])
+    subprocess.run(['rsync', '-L', bitfiles[0], hps_rbf])
+    subprocess.run(['rsync', '-L', bitfiles[1], core_rbf])
   return {
     'actions': [get_bitfiles]
   , 'targets': [hps_rbf, core_rbf]
@@ -181,13 +89,15 @@ def task_build_hps_uboot():
       git clone --depth=1 https://github.com/CTSRD-CHERI/de10pro-playground-uboot.git {bdir}
       cd {bdir}
       sh build_uboot.sh
-      cp u-boot-socfpga/u-boot-dtb.bin {uboot_bin}
+      cp u-boot-socfpga/u-boot-dtb.bin {uboot_bin.absolute()}
     """
+    uboot_bin.parent.mkdir(parents = True, exist_ok = True)
     subprocess.run(['bash', '-c', script], check = True)
   return {
     'actions': [clone_and_build]
   , 'targets': [uboot_bin]
   , 'uptodate': [True]
+  , 'verbosity': 2
   }
 
 def task_gen_uboot_stage2():
@@ -276,30 +186,6 @@ def task_gen_payload_runme():
   , 'targets': [out_fname]
   }
 
-#def task_create_payload():
-#  d = f'{outdir}'
-#  pd = f'{d}/payload'
-#  fdeps = [
-#    f'runme.sh'
-#  , f'hps.a53.openocd.cfg'
-#  , f'tftp/loader.efi'
-#  , f'tftp/socfpga_stratix10_de10_pro.dts.dtb'
-#  , f'tftp/u-boot-stage2.scr'
-#  , f'tftp/fpga.hps.rbf'
-#  , f'tftp/fpga.core.rbf'
-#  , f'freebsd-aarch64-rootfs.tar'
-#  ]
-#  def create_payload():
-#    require_cmd('fuseext2')
-#    subprocess.run([ './create_payload.sh', '-s', '14G'
-#                   , '-o', f'{d}/de10playground_payload.img', pd ])
-#  return {
-#    'actions': [create_payload]
-#  , 'file_dep': [f'{pd}/{x}' for x in fdeps]
-#  , 'task_dep': ['update_aarch64_rootfs']
-#  , 'targets': [f'{d}/de10playground_payload.img']
-#  }
-
 def task_create_user_disk():
   d = Path(outdir)
   fdeps = [
@@ -312,7 +198,6 @@ def task_create_user_disk():
   , f'tftp/u-boot-stage2.scr'
   , f'tftp/fpga.hps.rbf'
   , f'tftp/fpga.core.rbf'
-  , f'freebsd-aarch64-rootfs.tar'
   ]
   bash_profile = d / f'.bash_profile'
   pubkey = d / f'key.pub'
@@ -365,18 +250,16 @@ def task_create_user_disk():
                          , stderr=subprocess.STDOUT
                          , text = True )
     out1, err1 = p1.communicate(script)
-    tmpauthkeys.close()
-
     print(out0)
     print(err0)
     print(out1)
     print(err1)
+    tmpauthkeys.close()
     return (p0.returncode == 0 and p1.returncode == 0)
 
   return {
     'actions': [create_user_disk]
   , 'file_dep': [bash_profile, pubkey] + [f'{pd}/{x}' for x in fdeps]
-  , 'task_dep': ['update_aarch64_rootfs']
   , 'targets': [usr_dsk]
   , 'verbosity': 2
   }
