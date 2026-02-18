@@ -15,6 +15,8 @@ def init_ctxt( template_directory = 'templates'
              , hps_rbf = Path("caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga.hps.rbf")
              , core_rbf = Path("caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga.core.rbf")
              , payload = None
+             , param_libguestfs_debug_trace = True
+             , param_supermin_kernel = "/opt/de10playground/supermin_libguestfs_kernel"
              ):
   global tmpl_env
   global tmpl_params
@@ -22,6 +24,8 @@ def init_ctxt( template_directory = 'templates'
   global builddir
   global pd
   global bitfiles
+  global libguestfs_debug_trace
+  global supermin_kernel
 
   tmpl_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_directory))
 
@@ -35,6 +39,8 @@ def init_ctxt( template_directory = 'templates'
 
   bitfiles = (hps_rbf, core_rbf)
   extra_payload = payload
+  libguestfs_debug_trace = param_libguestfs_debug_trace
+  supermin_kernel = param_supermin_kernel
 
 init_ctxt()
 
@@ -241,6 +247,11 @@ def task_create_user_disk():
     """
     env = os.environ.copy()
     env['TMPDIR'] = tmpmounts
+    if libguestfs_debug_trace:
+      env['LIBGUESTFS_DEBUG'] = "1"
+      env['LIBGUESTFS_TRACE'] = "1"
+    #env['LIBGUESTFS_BACKEND'] = "direct"
+    env['SUPERMIN_KERNEL'] = supermin_kernel
     tmpmounts.mkdir(parents = True, exist_ok = True)
     (tmpmounts / 'tmp').mkdir(parents = True, exist_ok = True)
     p1 = subprocess.Popen( [shutil.which('guestfish'), '--']
