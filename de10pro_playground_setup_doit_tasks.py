@@ -15,7 +15,7 @@ def init_ctxt( template_directory = 'templates'
              , hps_rbf = Path("caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga.hps.rbf")
              , core_rbf = Path("caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga.core.rbf")
              , payload = None
-             , param_libguestfs_debug_trace = True
+             , param_libguestfs_debug_trace = False
              , param_supermin_kernel = "/opt/de10playground/supermin_libguestfs_kernel"
              ):
   global tmpl_env
