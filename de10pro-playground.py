@@ -19,9 +19,13 @@ if __name__ == "__main__":
   , type = Path, default = Path('./templates')
   , help="The TEMPLATE_DIRECTORY containing the jinja templates")
   parser_setup.add_argument(
-    '--hps-rbf', metavar='HPF_RBF', type = Path
+    '--hps-uboot', metavar='HPS_UBOOT', type = Path
+  , default = Path("u-boot-socfpga/spl/u-boot-dtb.bin")
+  , help="The HPS_UBOOT file to use")
+  parser_setup.add_argument(
+    '--hps-rbf', metavar='HPS_RBF', type = Path
   , default = Path("caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga.hps.rbf")
-  , help="The HPF_RBF file to use")
+  , help="The HPS_RBF file to use")
   parser_setup.add_argument(
     '--core-rbf', metavar='CORE_RBF', type = Path
   , default = Path("caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga.core.rbf")
@@ -61,6 +65,7 @@ if __name__ == "__main__":
     , output_directory=clargs.output_directory.absolute()
     , hps_rbf = clargs.hps_rbf
     , core_rbf = clargs.core_rbf
+    , hps_uboot = clargs.hps_uboot
     , payload = clargs.payload
     )
     sys.exit(DoitMain(ModuleTaskLoader(de10pro_playground_setup_doit_tasks)).run(rest))

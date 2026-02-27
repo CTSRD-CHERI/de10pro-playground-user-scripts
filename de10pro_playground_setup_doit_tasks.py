@@ -14,6 +14,7 @@ def init_ctxt( template_directory = 'templates'
              , output_directory = 'setup_output'
              , hps_rbf = Path("caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga.hps.rbf")
              , core_rbf = Path("caravel.cl.cam.ac.uk:/auto/anfs/bigdisc/aj443/de10pro-playground/fpga.core.rbf")
+             , hps_uboot = Path("u-boot-socfpga/spl/u-boot-dtb.bin")
              , payload = None
              , param_libguestfs_debug_trace = False
              , param_supermin_kernel = "/opt/de10playground/supermin_libguestfs_kernel"
@@ -26,6 +27,7 @@ def init_ctxt( template_directory = 'templates'
   global bitfiles
   global libguestfs_debug_trace
   global supermin_kernel
+  global hps_uboot_file = hps_uboot
 
   tmpl_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_directory))
 
@@ -85,22 +87,12 @@ def task_get_bitfiles():
   , 'uptodate': [True]
   }
 
-def task_build_hps_uboot():
+def task_get_hps_uboot():
   uboot_bin = pd / 'tftp/u-boot-dtb.bin'
-  bdir = builddir / 'u-boot'
-  bdir.mkdir(parents = True, exist_ok = True)
-  def clone_and_build():
-    require_cmd('git')
-    script = f"""
-      git clone --depth=1 https://github.com/CTSRD-CHERI/de10pro-playground-uboot.git {bdir}
-      cd {bdir}
-      sh build_uboot.sh
-      cp u-boot-socfpga/u-boot-dtb.bin {uboot_bin.absolute()}
-    """
-    uboot_bin.parent.mkdir(parents = True, exist_ok = True)
-    subprocess.run(['bash', '-c', script], check = True)
+  def copy_hps_uboot():
+    shutil.copy(hps_uboot_file, uboot_bin)
   return {
-    'actions': [clone_and_build]
+    'actions': [copy_hps_uboot]
   , 'targets': [uboot_bin]
   , 'uptodate': [True]
   , 'verbosity': 2
