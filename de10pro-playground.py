@@ -20,7 +20,7 @@ if __name__ == "__main__":
   , help="The TEMPLATE_DIRECTORY containing the jinja templates")
   parser_setup.add_argument(
     '--hps-uboot', metavar='HPS_UBOOT', type = Path
-  , default = Path("u-boot-socfpga/spl/u-boot-dtb.bin")
+  , default = Path("u-boot-socfpga/u-boot-dtb.bin")
   , help="The HPS_UBOOT file to use")
   parser_setup.add_argument(
     '--hps-rbf', metavar='HPS_RBF', type = Path
