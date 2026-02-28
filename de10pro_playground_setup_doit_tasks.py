@@ -27,7 +27,7 @@ def init_ctxt( template_directory = 'templates'
   global bitfiles
   global libguestfs_debug_trace
   global supermin_kernel
-  global hps_uboot_file = hps_uboot
+  global hps_uboot_file
 
   tmpl_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_directory))
 
@@ -43,6 +43,7 @@ def init_ctxt( template_directory = 'templates'
   extra_payload = payload
   libguestfs_debug_trace = param_libguestfs_debug_trace
   supermin_kernel = param_supermin_kernel
+  hps_uboot_file = hps_uboot
 
 init_ctxt()
 
