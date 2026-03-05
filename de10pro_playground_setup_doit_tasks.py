@@ -174,7 +174,7 @@ def task_gen_payload_runme():
   t = tmpl_env.get_template('runme.sh')
   out_fname = f'{pd}/runme.sh'
   def gen_runme():
-    if not out_fname.exists():
+    if not os.path.exists(out_fname):
       r = t.render(**(tmpl_params['runme.sh']))
       pd.mkdir(parents = True, exist_ok = True)
       with open(out_fname, mode='w') as f:
