@@ -46,6 +46,7 @@ vm-cloud-init/user-data:
     - gdb-multiarch
     - python3
     - python3-pexpect
+    - python3-pyelftools
     - linux-image-generic
 
 vm-cloud-init/meta-data:
