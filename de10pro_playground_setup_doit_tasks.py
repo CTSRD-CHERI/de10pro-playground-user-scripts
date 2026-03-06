@@ -353,6 +353,5 @@ def task_setup_playground():
   return {
     'actions': [f'echo "de10 playground setup in {outdir}"']
   , 'verbosity': 2
-  , 'file_dep': [ outdir / fname for fname in [ 'de10pro-playground-user-vm.qcow2'
-                                              , 'de10playground-user-disk.qcow2'] ]
+  , 'file_dep': [ outdir / fname for fname in ['de10playground-user-disk.qcow2'] ]
   }
