@@ -71,7 +71,7 @@ if __name__ == "__main__":
     sys.exit(DoitMain(ModuleTaskLoader(de10pro_playground_setup_doit_tasks)).run(rest))
 
   if clargs.cmd == 'run':
-    def spawn_playground_cmd(d, board_id=None):
+    def spawn_playground_cmd(d, board_id=random.randint(1, 8)):
       if not (d / 'de10pro-playground-user-vm.qcow2').exists():
         sys.stderr.write(f'no de10pro-playground-user-vm.qcow2 found in {d}\n')
         sys.exit(1)
@@ -93,4 +93,4 @@ if __name__ == "__main__":
       for _ in range(1, nruns): sess.new_window()
       for i, d in enumerate(clargs.run_directory):
         p = sess.windows[i].panes[0]
-        p.send_keys(' '.join(spawn_playground_cmd(Path(d), board_id=random.randint(1, 8))))
+        p.send_keys(' '.join(spawn_playground_cmd(Path(d), i)))
