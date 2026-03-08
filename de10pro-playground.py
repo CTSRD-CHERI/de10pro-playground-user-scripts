@@ -93,4 +93,4 @@ if __name__ == "__main__":
       for _ in range(1, nruns): sess.new_window()
       for i, d in enumerate(clargs.run_directory):
         p = sess.windows[i].panes[0]
-        p.send_keys(' '.join(spawn_playground_cmd(Path(d), board_id=i)))
+        p.send_keys(' '.join(spawn_playground_cmd(Path(d), board_id=random.randint(1, 8))))
