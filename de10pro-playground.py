@@ -69,7 +69,7 @@ if __name__ == "__main__":
     , hps_uboot = clargs.hps_uboot
     , payload = clargs.payload
     )
-    sys.exit(DoitMain(ModuleTaskLoader(de10pro_playground_setup_doit_tasks)).run(rest))
+    sys.exit(DoitMain(ModuleTaskLoader(de10pro_playground_setup_doit_tasks)).run(['setup_playground', *rest]))
 
   if clargs.cmd == 'run':
     def spawn_playground_cmd(d, board_id=random.randint(1, 8)):
