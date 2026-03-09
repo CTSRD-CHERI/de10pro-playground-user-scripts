@@ -280,7 +280,7 @@ def task_get_ubuntu_cloud_image():
   return {
     'actions': [get_img]
   , 'targets': [vm_img]
-  , 'uptodate': [True]
+  #, 'uptodate': [True]
   }
 
 def task_gen_cloud_init_conf():
