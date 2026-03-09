@@ -283,7 +283,6 @@ def task_get_ubuntu_cloud_image():
     print(f'tmp exists: {os.path.exists(tmp)}')
     outdir.mkdir(parents = True, exist_ok = True)
     shutil.move(tmp, vm_img)
-    os.unlink(tmp)
 
   return {
     'actions': [get_img]
