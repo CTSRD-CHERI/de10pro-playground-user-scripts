@@ -280,7 +280,8 @@ def task_get_ubuntu_cloud_image():
       with urllib.request.urlopen(ubuntu_img_url) as resp:
         print(f'resp.msg: {resp.msg}')
         shutil.copyfileobj(resp, tmpf)
-    print(f'tmp exists: {os.path.exists(tmp)}')  # True!
+    print(f'tmp exists: {os.path.exists(tmp)}')
+    outdir.mkdir(parents = True, exist_ok = True)
     shutil.move(tmp, vm_img)
     os.unlink(tmp)
 
