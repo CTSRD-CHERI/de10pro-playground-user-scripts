@@ -275,10 +275,14 @@ def task_get_ubuntu_cloud_image():
   ubuntu_img_url="https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
   #ubuntu_img_url="https://cloud-images.ubuntu.com/plucky/current/plucky-server-cloudimg-amd64.img"
   def get_img():
-    print(f'ubuntu_img_url: {ubuntu_img_url}')
-    tmp, _ = urllib.request.urlretrieve(ubuntu_img_url)
-    print(f'tmp: {tmp}')
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.img') as tmpf:
+      tmp = tmpf.name
+      with urllib.request.urlopen(ubuntu_img_url) as resp:
+        shutil.copyfileobj(resp, tmpf)
+    print(f'tmp exists: {os.path.exists(tmp)}')  # True!
     shutil.move(tmp, vm_img)
+    os.unlink(tmp)
+
   return {
     'actions': [get_img]
   , 'targets': [vm_img]
