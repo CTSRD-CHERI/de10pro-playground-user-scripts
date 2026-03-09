@@ -72,14 +72,12 @@ if __name__ == "__main__":
     sys.exit(DoitMain(ModuleTaskLoader(de10pro_playground_setup_doit_tasks)).run(['setup_playground', *rest]))
 
   if clargs.cmd == 'run':
-    def spawn_playground_cmd(d, board_id=random.randint(1, 8)):
+    def spawn_playground_cmd(d, board_id=random.randint(0, 7)):
       if not (d / 'de10pro-playground-user-vm.qcow2').exists():
         sys.stderr.write(f'no de10pro-playground-user-vm.qcow2 found in {d}\n')
         sys.exit(1)
       cmd = [ '/opt/de10playground/bin/de10playground' ]
-      if board_id != None:
-        cmd.append(f'-s{board_id}')
-        cmd.append(f'-e{board_id}')
+      cmd.append(f'-s{board_id}')
       if (d / 'de10playground-user-disk.qcow2').exists():
         cmd.extend(['-u', (d / 'de10playground-user-disk.qcow2').absolute()])
       cmd.append((d / 'de10pro-playground-user-vm.qcow2').absolute())
