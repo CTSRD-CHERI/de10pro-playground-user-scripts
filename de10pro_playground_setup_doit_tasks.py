@@ -275,12 +275,15 @@ def task_get_ubuntu_cloud_image():
   ubuntu_img_url="https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
   #ubuntu_img_url="https://cloud-images.ubuntu.com/plucky/current/plucky-server-cloudimg-amd64.img"
   def get_img():
+    print(f'ubuntu_img_url: {ubuntu_img_url}')
     tmp, _ = urllib.request.urlretrieve(ubuntu_img_url)
+    print(f'tmp: {tmp}')
     shutil.move(tmp, vm_img)
   return {
     'actions': [get_img]
   , 'targets': [vm_img]
   #, 'uptodate': [True]
+  , 'verbosity': 2
   }
 
 def task_gen_cloud_init_conf():
