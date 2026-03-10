@@ -293,28 +293,22 @@ def task_get_ubuntu_cloud_image():
 
 def task_gen_cloud_init_conf():
   t0 = tmpl_env.get_template('vm-cloud-init/user-data')
-  t1 = tmpl_env.get_template('vm-cloud-init/user-data')
+  t1 = tmpl_env.get_template('vm-cloud-init/meta-data')
   d = f'{outdir}/vm-cloud-init'
   out_fname0 = f'{d}/user-data'
   out_fname1 = f'{d}/meta-data'
   def gen_cloud_init_conf():
-    sshkey = {'name': 'key'}
-    with open(f'{outdir}/key','r') as key: sshkey['priv'] = key.read().replace('\n','\\n')
-    with open(f'{outdir}/key.pub','r') as pkey: sshkey['pub'] = pkey.read()
-    if not tmpl_params['vm-cloud-init/user-data']:
-      tmpl_params['vm-cloud-init/user-data'] = {}
-    tmpl_params['vm-cloud-init/user-data']['ssh_keys'] = [sshkey]
-    print(f"tmpl_params['vm-cloud-init/user-data']: {tmpl_params['vm-cloud-init/user-data']}")
+    params = dict(tmpl_params.get('vm-cloud-init/user-data') or {})
+    params['ssh_keys'] = []
     os.makedirs(d, exist_ok=True)
-    r = t0.render(**tmpl_params['vm-cloud-init/user-data'])
+    r = t0.render(**params)
     with open(out_fname0, mode='w') as f: f.write(r)
-    tmpl_params['vm-cloud-init/meta-data'] = {}
-    r = t1.render(**(tmpl_params['vm-cloud-init/meta-data']))
+    r = t1.render(**(tmpl_params.get('vm-cloud-init/meta-data') or {}))
     with open(out_fname1, mode='w') as f: f.write(r)
   return {
     'actions': [gen_cloud_init_conf]
-  , 'verbosity':2
-  , 'file_dep': [t0.filename, t1.filename, f'{outdir}/key', f'{outdir}/key.pub']
+  , 'verbosity': 2
+  , 'file_dep': [t0.filename, t1.filename]
   , 'targets': [out_fname0, out_fname1]
   }
 
@@ -336,25 +330,76 @@ def task_gen_cloud_init_iso():
   , 'targets': [isoname]
   }
 
-def task_gen_vm_image():
-  vmimage = outdir / 'de10pro-playground-user-vm.qcow2'
-  usr_dsk = outdir / 'de10playground-user-disk.qcow2'
-  def gen_vm_image():
-    shutil.copy(f'{outdir}/de10pro-playground-vm.qcow2', vmimage)
+def task_gen_base_vm_image():
+  base_vmimage = outdir / 'de10pro-playground-base-vm.qcow2'
+  def gen_base_vm_image():
+    shutil.copy(f'{outdir}/de10pro-playground-vm.qcow2', base_vmimage)
     require_cmd('qemu-img')
-    subprocess.run(['qemu-img', 'resize', vmimage, '16G'])
+    subprocess.run(['qemu-img', 'resize', base_vmimage, '16G'])
     subprocess.run([ 'qemu-system-x86_64', '-enable-kvm', '-m', '2048'
                    , '-machine', 'q35'
-                   , '-drive', f'file={vmimage},if=virtio'
+                   , '-drive', f'file={base_vmimage},if=virtio'
                    , '-drive', f'driver=raw,file={outdir}/vm-cloud-init/config.iso,if=virtio'
-                   , '-drive', f'file={usr_dsk},if=virtio'
                    , '-nographic' ])
   return {
-    'actions': [gen_vm_image]
+    'actions': [gen_base_vm_image]
   , 'file_dep': [ f'{outdir}/de10pro-playground-vm.qcow2'
                 , f'{outdir}/vm-cloud-init/config.iso'
                 ]
-  , 'targets': [ vmimage ]
+  , 'targets': [base_vmimage]
+  }
+
+def task_gen_vm_image():
+  vmimage = outdir / 'de10pro-playground-user-vm.qcow2'
+  base_vmimage = outdir / 'de10pro-playground-base-vm.qcow2'
+  pubkey = outdir / 'key.pub'
+  privkey = outdir / 'key'
+  def inject_user_keys():
+    shutil.copy(str(base_vmimage), str(vmimage))
+    tmpmounts = outdir / 'tmpmounts'
+    tmpmounts.mkdir(parents=True, exist_ok=True)
+    (tmpmounts / 'tmp').mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.authorized_keys', delete=False) as f:
+      f.write(pubkey.read_text())
+      authkeys_tmp = f.name
+    script = f"""
+mkdir-p /home/de10-user/.ssh
+copy-in {privkey.absolute()} /home/de10-user/.ssh/
+copy-in {pubkey.absolute()} /home/de10-user/.ssh/
+copy-in {authkeys_tmp} /home/de10-user/.ssh/
+mv /home/de10-user/.ssh/{Path(authkeys_tmp).name} /home/de10-user/.ssh/authorized_keys
+chown 1000 1000 /home/de10-user/.ssh
+chown 1000 1000 /home/de10-user/.ssh/key
+chown 1000 1000 /home/de10-user/.ssh/key.pub
+chown 1000 1000 /home/de10-user/.ssh/authorized_keys
+chmod 0700 /home/de10-user/.ssh
+chmod 0600 /home/de10-user/.ssh/key
+chmod 0644 /home/de10-user/.ssh/key.pub
+chmod 0600 /home/de10-user/.ssh/authorized_keys
+exit
+"""
+    env = os.environ.copy()
+    env['SUPERMIN_KERNEL'] = supermin_kernel
+    env['TMPDIR'] = str(tmpmounts)
+    if libguestfs_debug_trace:
+      env['LIBGUESTFS_DEBUG'] = "1"
+      env['LIBGUESTFS_TRACE'] = "1"
+    p = subprocess.Popen(
+      [shutil.which('guestfish'), '-a', str(vmimage), '-i', '--']
+    , env=env
+    , stdin=subprocess.PIPE
+    , stdout=subprocess.PIPE
+    , stderr=subprocess.STDOUT
+    , text=True
+    )
+    out, _ = p.communicate(script)
+    print(out)
+    return p.returncode == 0
+  return {
+    'actions': [inject_user_keys]
+  , 'file_dep': [base_vmimage, pubkey, privkey]
+  , 'targets': [vmimage]
+  , 'verbosity': 2
   }
 
 def task_setup_playground():
