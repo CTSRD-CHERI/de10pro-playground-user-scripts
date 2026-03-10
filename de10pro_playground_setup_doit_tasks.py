@@ -408,6 +408,7 @@ exit
     return p.returncode == 0
   return {
     'actions': [inject_user_keys]
+  , 'task_dep': ['gen_ssh_keys']
   , 'file_dep': [base_vmimage, pubkey, privkey]
   , 'targets': [vmimage]
   , 'verbosity': 2
