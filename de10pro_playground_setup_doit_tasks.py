@@ -18,6 +18,7 @@ def init_ctxt( template_directory = 'templates'
              , payload = None
              , param_libguestfs_debug_trace = False
              , param_supermin_kernel = "/opt/de10playground/supermin_libguestfs_kernel"
+             , base_vm_image = None
              ):
   global tmpl_env
   global tmpl_params
@@ -28,6 +29,7 @@ def init_ctxt( template_directory = 'templates'
   global libguestfs_debug_trace
   global supermin_kernel
   global hps_uboot_file
+  global provided_base_vm_image
 
   tmpl_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_directory))
 
@@ -44,6 +46,7 @@ def init_ctxt( template_directory = 'templates'
   libguestfs_debug_trace = param_libguestfs_debug_trace
   supermin_kernel = param_supermin_kernel
   hps_uboot_file = hps_uboot
+  provided_base_vm_image = Path(base_vm_image) if base_vm_image else None
 
 init_ctxt()
 
@@ -332,6 +335,14 @@ def task_gen_cloud_init_iso():
 
 def task_gen_base_vm_image():
   base_vmimage = outdir / 'de10pro-playground-base-vm.qcow2'
+  if provided_base_vm_image:
+    def copy_provided_base_vm_image():
+      shutil.copy(str(provided_base_vm_image), str(base_vmimage))
+    return {
+      'actions': [copy_provided_base_vm_image]
+    , 'file_dep': [provided_base_vm_image]
+    , 'targets': [base_vmimage]
+    }
   def gen_base_vm_image():
     shutil.copy(f'{outdir}/de10pro-playground-vm.qcow2', base_vmimage)
     require_cmd('qemu-img')
