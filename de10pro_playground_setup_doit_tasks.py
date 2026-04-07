@@ -19,6 +19,7 @@ def init_ctxt( template_directory = 'templates'
              , param_libguestfs_debug_trace = False
              , param_supermin_kernel = "/opt/de10playground/supermin_libguestfs_kernel"
              , base_vm_image = None
+             , source_user_disk = None
              ):
   global tmpl_env
   global tmpl_params
@@ -30,6 +31,7 @@ def init_ctxt( template_directory = 'templates'
   global supermin_kernel
   global hps_uboot_file
   global provided_base_vm_image
+  global provided_source_user_disk
 
   tmpl_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_directory))
 
@@ -47,6 +49,7 @@ def init_ctxt( template_directory = 'templates'
   supermin_kernel = param_supermin_kernel
   hps_uboot_file = hps_uboot
   provided_base_vm_image = Path(base_vm_image) if base_vm_image else None
+  provided_source_user_disk = Path(source_user_disk) if source_user_disk else None
 
 init_ctxt()
 
@@ -208,40 +211,54 @@ def task_create_user_disk():
   usr_dsk = d / 'de10playground-user-disk.qcow2'
   usr_dsk_sz = '32G'
   def create_user_disk():
-    script = f"qemu-img create -f qcow2 {usr_dsk} {usr_dsk_sz}"
-    p0 = subprocess.Popen( [shutil.which('bash'), '--login', '-c', script]
-                         , stdout=subprocess.PIPE
-                         , stderr=subprocess.STDOUT )
-    out0, err0 = p0.communicate()
-    p0.wait()
     tmpauthkeys = tempfile.NamedTemporaryFile(mode = 'w')
     tmpauthkeys.write(pubkey.read_text())
+    if provided_source_user_disk:
+      if usr_dsk.is_symlink() or usr_dsk.exists():
+        usr_dsk.unlink()
+      usr_dsk.symlink_to(provided_source_user_disk.absolute())
+      out0, err0 = b'', None
+      rc_create = 0
+      guestfish_preamble = f"""
+add {usr_dsk}
+run
+mount /dev/sda1 /
+"""
+    else:
+      script = f"qemu-img create -f qcow2 {usr_dsk} {usr_dsk_sz}"
+      p0 = subprocess.Popen( [shutil.which('bash'), '--login', '-c', script]
+                           , stdout=subprocess.PIPE
+                           , stderr=subprocess.STDOUT )
+      out0, err0 = p0.communicate()
+      p0.wait()
+      rc_create = p0.returncode
+      guestfish_preamble = f"""
+add {usr_dsk}
+run
+part-init /dev/sda gpt
+part-add /dev/sda primary 2048 -2048
+mkfs ext4 /dev/sda1
+mount /dev/sda1 /
+"""
     #script = textwrap.dedent(f"""
-    script = f"""
-    add {usr_dsk}
-    run
-    part-init /dev/sda gpt
-    part-add /dev/sda primary 2048 -2048
-    mkfs ext4 /dev/sda1
-    mount /dev/sda1 /
+    script = guestfish_preamble + f"""
+copy-in {pd.absolute()} /
+chown 1000 1000 /{pd.name}
 
-    copy-in {pd.absolute()} /
-    chown 1000 1000 /{pd.name}
+copy-in {bash_profile.absolute()} /
+chown 1000 1000 /{bash_profile.name}
 
-    copy-in {bash_profile.absolute()} /
-    chown 1000 1000 /{bash_profile.name}
+mkdir /.ssh
+chown 1000 1000 /.ssh/
+chmod 0700 /.ssh
+copy-in {pubkey.absolute()} /.ssh/
+mv /.ssh/{pubkey.name} /.ssh/authorized_keys
+chown 1000 1000 /.ssh/authorized_keys
+chmod 0600 /.ssh/authorized_keys
 
-    mkdir /.ssh
-    chown 1000 1000 /.ssh/
-    chmod 0700 /.ssh
-    copy-in {pubkey.absolute()} /.ssh/
-    mv /.ssh/{pubkey.name} /.ssh/authorized_keys
-    chown 1000 1000 /.ssh/authorized_keys
-    chmod 0600 /.ssh/authorized_keys
-
-    umount /
-    exit
-    """
+umount /
+exit
+"""
     env = os.environ.copy()
     env['TMPDIR'] = tmpmounts
     if libguestfs_debug_trace:
@@ -263,11 +280,14 @@ def task_create_user_disk():
     print(out1)
     print(err1)
     tmpauthkeys.close()
-    return (p0.returncode == 0 and p1.returncode == 0)
+    return (rc_create == 0 and p1.returncode == 0)
 
+  file_dep = [bash_profile, pubkey] + [f'{pd}/{x}' for x in fdeps]
+  if provided_source_user_disk:
+    file_dep.append(provided_source_user_disk)
   return {
     'actions': [create_user_disk]
-  , 'file_dep': [bash_profile, pubkey] + [f'{pd}/{x}' for x in fdeps]
+  , 'file_dep': file_dep
   , 'targets': [usr_dsk]
   , 'verbosity': 2
   }

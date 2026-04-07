@@ -41,6 +41,9 @@ if __name__ == "__main__":
   parser_setup.add_argument(
     '--base-vm-image', metavar='BASE_VM_IMAGE', type = Path, default = None
   , help="Pre-built BASE_VM_IMAGE qcow2 to use instead of building via cloud-init")
+  parser_setup.add_argument(
+    '--source-user-disk', metavar='SOURCE_USER_DISK', type = Path, default = None
+  , help="Source SOURCE_USER_DISK qcow2 to update instead of creating a fresh user disk")
 
   parser_run = subparsers.add_parser('run', help='run the de10 playground')
   parser_run.add_argument('run_directory', metavar='RUN_DIR'
@@ -72,6 +75,7 @@ if __name__ == "__main__":
     , hps_uboot = clargs.hps_uboot
     , payload = clargs.payload
     , base_vm_image = clargs.base_vm_image
+    , source_user_disk = clargs.source_user_disk
     )
     sys.exit(DoitMain(ModuleTaskLoader(de10pro_playground_setup_doit_tasks)).run(rest))
 
