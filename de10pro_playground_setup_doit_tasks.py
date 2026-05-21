@@ -241,10 +241,12 @@ mkfs ext4 /dev/sda1
 mount /dev/sda1 /
 """
     #script = textwrap.dedent(f"""
+    symlink_cmd = (f"ln-s /{pd.name} /de10playground-payload\n"
+                   if pd.name != 'de10playground-payload' else "")
     script = guestfish_preamble + f"""
 copy-in {pd.absolute()} /
 chown 1000 1000 /{pd.name}
-
+{symlink_cmd}
 copy-in {bash_profile.absolute()} /
 chown 1000 1000 /{bash_profile.name}
 
