@@ -93,7 +93,11 @@ echo "restarted nfs-ganesha.service with payload-specific configuration"
 #fxload -t fx2lp -D $DEVNODE -I /opt/intelFPGA_pro/23.3/qprogrammer/quartus/linux64/blaster_6810.hex && \
 echo "Pre running jtagconfig (potential firmware download)..." && jtagconfig && \
 sleep 3 && echo "Programing FPGA..." && \
-  (for i in `seq 4`; do sleep 2 && quartus_pgm -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@2;  done) && \
+  (for i in `seq 4`; do
+     sleep 2
+     quartus_pgm -m jtag -o P\;${PAYLOADDIR}/tftp/fpga.hps.rbf@2 && break
+     echo "programming attempt $i failed with $?"
+   done) && \
 sleep 3 && echo "Spawning openocd process..." && (openocd -f ${PAYLOADDIR}/hps.a53.openocd.cfg &) && \
 sleep 3 && echo "Spawning gdb procerss..." && (gdb-multiarch -x ${PAYLOADDIR}/hps.a53.boot.gdb &) && \
 sleep 3 && echo "Spawning expect process + picocom ..." && \
