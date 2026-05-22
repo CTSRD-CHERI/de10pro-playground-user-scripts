@@ -62,9 +62,12 @@ def require_cmd(cmd):
 
 def task_gen_ssh_keys():
   def gen_keys():
+    outdir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryFile("w+") as f:
       f.write('y')
-      subprocess.run([ 'ssh-keygen', '-N', '', '-f', f'{outdir}/key' ], stdin=f)
+      f.seek(0)
+      result = subprocess.run([ 'ssh-keygen', '-N', '', '-f', f'{outdir}/key' ], stdin=f)
+    return result.returncode == 0
   return {
     'actions': [gen_keys]
   , 'targets': [f'{outdir}/key', f'{outdir}/key.pub']
