@@ -26,6 +26,7 @@ def init_ctxt( template_directory = 'templates'
   global outdir
   global builddir
   global pd
+  global user_pd
   global bitfiles
   global libguestfs_debug_trace
   global supermin_kernel
@@ -41,7 +42,8 @@ def init_ctxt( template_directory = 'templates'
 
   outdir = Path(output_directory)
   builddir = outdir / 'build'
-  pd = Path(payload) if payload else outdir / 'de10playground-payload'
+  pd = builddir / 'generated-payload'
+  user_pd = Path(payload).absolute() if payload else None
 
   bitfiles = (hps_rbf, core_rbf)
   extra_payload = payload
@@ -240,13 +242,16 @@ part-add /dev/sda primary 2048 -2048
 mkfs ext4 /dev/sda1
 mount /dev/sda1 /
 """
-    #script = textwrap.dedent(f"""
-    symlink_cmd = (f"ln-s /{pd.name} /de10playground-payload\n"
-                   if pd.name != 'de10playground-payload' else "")
+    staging_pd = builddir / 'de10playground-payload'
+    if staging_pd.exists():
+      shutil.rmtree(staging_pd)
+    shutil.copytree(pd, staging_pd)
+    if user_pd:
+      shutil.copytree(user_pd, staging_pd, dirs_exist_ok=True)
     script = guestfish_preamble + f"""
-copy-in {pd.absolute()} /
-chown 1000 1000 /{pd.name}
-{symlink_cmd}
+copy-in {staging_pd.absolute()} /
+chown 1000 1000 /de10playground-payload
+
 copy-in {bash_profile.absolute()} /
 chown 1000 1000 /{bash_profile.name}
 
